@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prof Toolbox - L'Atelier PDF</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/page-flip/dist/js/page-flip.browser.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { brand: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 900: '#0c4a6e' } } } }
+        }
+    </script>
+    <style>
+        /* --- GENERAL --- */
+        body { overflow: hidden; user-select: none; }
+        .workspace-pattern { background-color: #f8fafc; background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 20px 20px; }
+
+        /* --- DOCK & PANELS --- */
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-top: 1px solid #e2e8f0; box-shadow: 0 -4px 20px rgba(0,0,0,0.05); }
+        .dock-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+        .dock-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .dock-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; border: 2px solid transparent; background-clip: content-box; }
+        .dock-scrollbar:hover::-webkit-scrollbar-thumb { background-color: #94a3b8; }
+
+        /* PDF Card */
+        .pdf-card { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); width: 120px; flex-shrink: 0; }
+        .pdf-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        
+        #dock-drop-overlay { background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='10' ry='10' stroke='%230EA5E9FF' stroke-width='4' stroke-dasharray='10%2c 14' stroke-dashoffset='0' stroke-linecap='square'/%3e%3c/svg%3e"); background-color: rgba(240, 249, 255, 0.9); }
+
+        /* --- UTILS --- */
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* --- CROPPER & FLIPBOOK --- */
+        #cropper-container { position: relative; display: inline-block; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2); border: 2px solid #cbd5e1; }
+        #cropper-overlay { position: absolute; border: 2px dashed #ef4444; background-color: rgba(239, 68, 68, 0.1); cursor: move; box-sizing: border-box; z-index: 10; }
+        .resize-handle { position: absolute; width: 14px; height: 14px; background: #ef4444; border: 2px solid white; border-radius: 50%; z-index: 20; }
+        .handle-nw { top: -7px; left: -7px; cursor: nw-resize; } .handle-ne { top: -7px; right: -7px; cursor: ne-resize; } .handle-sw { bottom: -7px; left: -7px; cursor: sw-resize; } .handle-se { bottom: -7px; right: -7px; cursor: se-resize; }
+        .page-content { background-color: white; border-left: 1px solid #e2e8f0; height: 100%; width: 100%; display: flex; align-items: center; justify-content: center; background-size: contain; }
+        .page-content canvas { width: 100%; height: 100%; object-fit: contain; }
+
+        /* --- MIXER & SELECTION --- */
+        .mixer-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); align-content: start; }
+        
+        .mixer-thumb { 
+            cursor: grab; position: relative; background: white; border-radius: 0.5rem; padding: 0.25rem; 
+            border: 1px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); user-select: none;
+            transition: border-color 0.1s, background-color 0.1s, box-shadow 0.1s;
+        }
+        .mixer-thumb:hover { border-color: #cbd5e1; }
+        .mixer-thumb img { display: block; width: 100%; height: auto; pointer-events: none; border-radius: 0.25rem; }
+        
+        .mixer-thumb.selected { border-color: #2563eb; background-color: #eff6ff; box-shadow: 0 0 0 2px #2563eb; }
+        
+        .page-checkbox { position: absolute; top: 6px; left: 6px; width: 16px; height: 16px; z-index: 30; cursor: pointer; accent-color: #2563eb; opacity: 0; transition: opacity 0.2s; }
+        .mixer-thumb:hover .page-checkbox, .mixer-thumb.selected .page-checkbox { opacity: 1; }
+
+        .mixer-delete-btn { display: none; position: absolute; top: -8px; right: -8px; background: #ef4444; color: white; border-radius: 50%; width: 22px; height: 22px; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 20; }
+        .mixer-delete-btn:hover { background: #dc2626; }
+        #mixer-dest-list .mixer-thumb .mixer-delete-btn { display: flex; }
+
+        #selection-lasso { position: absolute; border: 1px solid #3b82f6; background-color: rgba(59, 130, 246, 0.2); z-index: 9999; pointer-events: none; display: none; }
+
+        .sortable-fallback { opacity: 1 !important; cursor: grabbing !important; pointer-events: none !important; z-index: 999999 !important; background: white; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); transform: scale(1.05); }
+        .sortable-ghost { opacity: 0.2; background: #e2e8f0; }
+
+        /* GUIDE IMPRESSION ANIM */
+        .perspective-container { perspective: 1000px; width: 160px; height: 100px; margin: 0 auto; }
+        .paper-sheet { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; animation: flipShortEdge 4s infinite ease-in-out; }
+        .paper-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid #cbd5e1; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .face-front { background: white; color: #334155; z-index: 2; }
+        .face-back { background: #e0f2fe; color: #0284c7; transform: rotateY(180deg); }
+        @keyframes flipShortEdge { 0%, 100% { transform: rotateY(0deg); } 40%, 60% { transform: rotateY(180deg); } }
+        .short-edge-indicator { position: absolute; right: -10px; top: 0; bottom: 0; width: 4px; background: repeating-linear-gradient(to bottom, #ef4444 0, #ef4444 10px, transparent 10px, transparent 20px); }
+    </style>
+</head>
+<body class="bg-slate-100 h-screen flex flex-col text-slate-800 font-sans overflow-hidden">
+
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-30 shadow-sm relative">
+        <div class="flex items-center gap-3 w-64">
+            <div class="w-8 h-8 bg-brand-600 rounded text-white flex items-center justify-center font-bold text-lg shadow-sm">P</div>
+            <div>
+                <h1 class="font-bold text-md text-slate-700 leading-tight">Prof Toolbox</h1>
+                <div class="text-[10px] text-slate-400 font-medium">L'Atelier</div>
+            </div>
+        </div>
+
+        <div class="absolute left-1/2 transform -translate-x-1/2 flex bg-slate-100 p-1 rounded-lg border border-slate-200 shadow-inner">
+            <button onclick="processPDF('merge')" class="px-3 py-1.5 text-slate-600 hover:text-brand-600 hover:bg-white rounded-md font-medium text-xs transition flex flex-col items-center gap-1"><span>🔗</span> Fusion</button>
+            <div class="w-px bg-slate-300 mx-1 my-1"></div>
+            <button onclick="processPDF('eco')" class="px-3 py-1.5 text-slate-600 hover:text-green-600 hover:bg-white rounded-md font-medium text-xs transition flex flex-col items-center gap-1"><span>🌿</span> Mode A5</button>
+            <button onclick="processPDF('booklet')" class="px-3 py-1.5 text-slate-600 hover:text-purple-600 hover:bg-white rounded-md font-medium text-xs transition flex flex-col items-center gap-1"><span>📖</span> Livret</button>
+            <div class="w-px bg-slate-300 mx-1 my-1"></div>
+            <button onclick="openCropperModal()" class="px-3 py-1.5 text-slate-600 hover:text-red-500 hover:bg-white rounded-md font-medium text-xs transition flex flex-col items-center gap-1"><span>✂️</span> Interro</button>
+            <div class="w-px bg-slate-300 mx-1 my-1"></div>
+            <button onclick="openGlobalMixer()" class="px-3 py-1.5 text-slate-600 hover:text-indigo-600 hover:bg-white rounded-md font-medium text-xs transition flex flex-col items-center gap-1"><span>🎛️</span> Mixage</button>
+        </div>
+
+        <div class="flex items-center gap-2 w-64 justify-end">
+            <button onclick="toggleTextCleaner()" class="text-slate-400 hover:text-slate-600 p-2 rounded hover:bg-slate-100 transition" title="Nettoyeur de texte"><span class="text-lg">🧹</span></button>
+            <div id="header-actions" class="hidden flex gap-2">
+                <button onclick="document.getElementById('print-guide-modal').classList.remove('hidden')" class="bg-amber-100 text-amber-700 px-3 py-1.5 rounded font-bold text-xs hover:bg-amber-200 transition border border-amber-300 flex items-center gap-1" title="Guide d'impression">
+                    <span>🖨️</span> Aide
+                </button>
+                <button onclick="openFlipbook()" class="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded font-bold text-xs hover:bg-indigo-100 transition border border-indigo-200">📖 Feuilleter</button>
+                <a id="final-download-btn" href="#" download="" class="bg-green-600 text-white px-4 py-1.5 rounded font-bold text-xs hover:bg-green-700 shadow flex items-center gap-2 transition transform hover:scale-[1.02]">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> Télécharger
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 relative overflow-hidden flex flex-col workspace-pattern">
+        
+        <div id="standard-workspace" class="absolute inset-0 flex flex-col">
+            <div id="preview-placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+                <div class="bg-white p-8 rounded-xl shadow-lg border border-slate-200 flex flex-col items-center max-w-md text-center">
+                    <svg class="w-16 h-16 mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    <h2 class="text-lg font-bold text-slate-600 mb-1">Espace de Travail</h2>
+                    <p class="text-sm text-slate-400">Ajoutez des fichiers ci-dessous, puis choisissez un outil.</p>
+                </div>
+            </div>
+            <div id="loading-indicator" class="hidden absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm">
+                <div class="loader mb-4"></div>
+                <span class="font-bold text-slate-700 text-lg animate-pulse" id="loading-text">Génération...</span>
+            </div>
+            <div class="flex-1 p-8 flex items-center justify-center overflow-hidden relative z-10">
+                <iframe id="pdf-preview" class="hidden w-full h-full max-w-[1200px] border border-slate-300 shadow-2xl rounded bg-white"></iframe>
+            </div>
+        </div>
+
+        <div id="mixer-workspace" class="hidden absolute inset-0 z-20 flex bg-slate-100">
+            <div id="mixer-sidebar" class="w-[400px] min-w-[300px] max-w-[800px] bg-white border-r border-slate-200 flex flex-col shadow-lg z-20 relative">
+                <div id="sidebar-resizer" class="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-indigo-500 hover:w-1.5 transition-all z-50"></div>
+                <div class="px-4 py-3 border-b border-slate-100 bg-slate-50 flex justify-between items-center select-none">
+                    <span class="font-bold text-slate-700 text-xs uppercase tracking-wider">📄 Sources</span>
+                    <button onclick="closeMixer()" class="text-xs text-slate-400 hover:text-slate-600">Fermer</button>
+                </div>
+                <div id="mixer-source-container" class="flex-1 overflow-y-auto p-4 space-y-4"></div>
+            </div>
+
+            <div class="flex-1 flex flex-col relative bg-slate-100 min-w-0">
+                <div class="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10 shrink-0">
+                    <div class="flex items-center gap-4">
+                        <h2 class="font-bold text-lg text-slate-800">Composition</h2>
+                        <span id="mixer-count" class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold">0 page</span>
+                        <button id="btn-delete-selection" onclick="deleteSelectedPages()" class="hidden px-3 py-1 bg-red-50 text-red-600 border border-red-200 rounded text-xs font-bold hover:bg-red-100 flex items-center gap-1 transition">
+                            <span>🗑️</span> Supprimer (<span id="selected-count">0</span>)
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-full border border-slate-200">
+                            <span class="text-[10px] font-bold text-slate-400">ZOOM</span>
+                            <input type="range" min="80" max="300" value="120" oninput="updateMixerZoom(this.value)" class="w-24 accent-indigo-600 cursor-pointer h-1">
+                        </div>
+                        <button onclick="confirmGlobalMixer()" class="px-4 py-1.5 bg-indigo-600 text-white font-bold text-sm rounded shadow hover:bg-indigo-700 flex items-center gap-2 transition">
+                            <span>✅</span> Générer PDF
+                        </button>
+                    </div>
+                </div>
+                <div id="mixer-dest-list" class="flex-1 overflow-y-auto p-8 mixer-grid content-start border-2 border-dashed border-transparent transition-colors duration-200 relative">
+                    <div id="mixer-placeholder" class="col-span-full h-full flex flex-col items-center justify-center text-slate-300 pointer-events-none">
+                        <svg class="w-16 h-16 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                        <p class="text-lg font-medium">Glissez les pages ici</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="dock-panel" class="h-48 glass-panel shrink-0 flex flex-col relative z-30 transition-colors duration-200 border-t border-slate-200">
+        <div class="px-4 py-2 flex justify-between items-center border-b border-slate-200/50 bg-white/50 relative z-10">
+            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                📂 Fichiers Sources
+                <span id="file-count-badge" class="bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full text-[10px] hidden">0</span>
+            </h3>
+        </div>
+        <div id="dock-drop-overlay" class="absolute inset-0 z-50 hidden flex flex-col items-center justify-center text-brand-600 pointer-events-none">
+            <svg class="w-16 h-16 mb-2 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+            <span class="text-xl font-bold">DÉPOSER LES FICHIERS ICI</span>
+        </div>
+        <div class="flex-1 overflow-x-auto dock-scrollbar p-4 flex gap-4 items-center relative z-10" id="dock-container">
+            <div id="btn-add-file" class="w-28 h-28 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center text-slate-400 hover:bg-white hover:border-brand-400 transition cursor-pointer shrink-0 bg-slate-50/50 group">
+                <span class="text-3xl mb-1 group-hover:scale-110 transition text-slate-300 group-hover:text-brand-400">+</span>
+                <span class="text-[10px] font-medium text-center px-2">Ajouter</span>
+            </div>
+            <div id="timeline" class="flex gap-4 items-center h-full">
+                <div id="empty-state" class="text-xs text-slate-400 italic px-4 whitespace-nowrap">Glissez vos fichiers n'importe où en bas...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="selection-lasso"></div>
+    <div id="toast-container" class="fixed bottom-52 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <div id="file-preview-modal" class="fixed inset-0 bg-slate-900/90 z-[60] hidden flex flex-col items-center justify-center backdrop-blur-sm"><div class="w-11/12 h-[90vh] flex flex-col bg-white rounded-lg shadow-2xl overflow-hidden relative"><div class="bg-slate-800 text-white px-4 py-3 flex justify-between items-center shrink-0"><h3 class="font-bold text-md" id="preview-filename">Aperçu</h3><button onclick="closeFilePreview()" class="hover:bg-slate-600 rounded p-1 transition">&times; Fermer</button></div><iframe id="file-preview-frame" class="w-full h-full bg-slate-100"></iframe></div></div>
+    
+    <div id="cropper-modal" class="fixed inset-0 bg-slate-900/95 z-50 hidden flex flex-col items-center justify-center backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300"><div class="w-full max-w-6xl h-[90vh] flex flex-col bg-white rounded-lg shadow-2xl overflow-hidden transform scale-95 transition-transform duration-300" id="cropper-content"><div class="bg-slate-50 px-6 py-4 border-b flex justify-between items-center shrink-0"><div><h3 class="font-bold text-lg text-slate-700">Définir la zone</h3><p class="text-xs text-slate-500">Encadrez le sujet.</p></div><div class="flex gap-3"><button onclick="closeCropperModal()" class="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded">Annuler</button><button onclick="confirmCropAndGenerate()" class="px-6 py-2 bg-brand-600 text-white font-bold rounded shadow hover:bg-brand-700 flex items-center gap-2"><span>✂️</span> Valider</button></div></div><div class="flex-1 overflow-auto bg-slate-200 p-8 flex justify-center items-start" id="cropper-scroll-area"><div id="cropper-container"><canvas id="cropper-canvas" class="block"></canvas><div id="cropper-overlay"><div class="resize-handle handle-nw" data-dir="nw"></div><div class="resize-handle handle-ne" data-dir="ne"></div><div class="resize-handle handle-sw" data-dir="sw"></div><div class="resize-handle handle-se" data-dir="se"></div></div></div></div></div></div>
+    
+    <div id="flipbook-modal" class="fixed inset-0 bg-slate-900/95 z-50 hidden flex flex-col items-center justify-center backdrop-blur-md">
+        <div class="absolute top-0 left-0 right-0 p-6 flex justify-between items-center text-white z-20 pointer-events-none">
+            <h2 class="text-lg font-bold pointer-events-auto">📖 Lecture</h2>
+            <button onclick="closeFlipbook()" class="pointer-events-auto bg-white/10 hover:bg-white/30 rounded-full w-10 h-10 flex items-center justify-center text-2xl transition cursor-pointer border border-white/20">&times;</button>
+        </div>
+        <div id="flipbook-container" class="relative w-full h-full flex items-center justify-center p-4 max-w-[60vw] max-h-[55vh] mx-auto my-auto">
+            <div id="flipbook" class="shadow-2xl" style="visibility: hidden;"></div>
+            <div id="flipbook-loader" class="absolute inset-0 flex flex-col items-center justify-center text-white">
+                <div class="loader mb-4 border-t-white"></div>
+                <p id="flipbook-loading-text" class="text-sm font-medium">Préparation...</p>
+                <div class="w-64 h-1.5 bg-slate-700 rounded-full mt-3 overflow-hidden">
+                    <div id="flipbook-progress-bar" class="h-full bg-brand-500 transition-all duration-75" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+        <div class="absolute bottom-8 flex gap-4 z-20">
+            <button onclick="if(flipBookInstance) flipBookInstance.flipPrev()" class="bg-white text-slate-900 px-6 py-2 rounded-full font-bold shadow hover:bg-slate-200 transition">← Précédent</button>
+            <button onclick="if(flipBookInstance) flipBookInstance.flipNext()" class="bg-white text-slate-900 px-6 py-2 rounded-full font-bold shadow hover:bg-slate-200 transition">Suivant →</button>
+        </div>
+    </div>
+
+    <div id="print-guide-modal" class="fixed inset-0 bg-slate-900/90 z-[80] hidden flex flex-col items-center justify-center backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-bounce-short">
+            <div class="bg-indigo-600 p-4 text-white flex justify-between items-center"><h3 class="font-bold text-lg flex items-center gap-2">🖨️ Aide à l'impression</h3><button onclick="document.getElementById('print-guide-modal').classList.add('hidden')" class="hover:bg-indigo-500 rounded p-1">&times;</button></div>
+            <div class="p-6 flex flex-col items-center gap-6">
+                <div class="perspective-container"><div class="paper-sheet"><div class="paper-face face-front"><span>RECTO</span><div class="short-edge-indicator"></div></div><div class="paper-face face-back"><span>VERSO (OK)</span></div></div></div>
+                <div class="text-sm text-slate-600 space-y-3 text-center">
+                    <p>Ce document est en mode <strong>Paysage</strong>.</p>
+                    <div class="bg-amber-50 border border-amber-200 rounded p-3 text-amber-800 text-left mx-auto inline-block">
+                        <p class="font-bold mb-1">Réglage indispensable :</p>
+                        <ul class="list-disc pl-4 space-y-1">
+                            <li>Cochez <strong>Recto-Verso</strong></li>
+                            <li>Option : Retourner sur les <strong>bords COURTS</strong></li>
+                        </ul>
+                    </div>
+                </div>
+                <button onclick="document.getElementById('print-guide-modal').classList.add('hidden')" class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-bold transition">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="duplication-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center backdrop-blur-sm"><div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 flex flex-col animate-bounce-short"><h3 class="text-lg font-bold text-gray-900 text-center mb-2" id="dup-title">Page unique</h3><p class="text-sm text-gray-500 text-center mb-6" id="dup-desc">Dupliquer ?</p><div class="flex gap-3 justify-center"><button onclick="resolveDuplication(false)" class="w-full py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 font-medium">Non</button><button onclick="resolveDuplication(true)" class="w-full py-2 bg-brand-600 text-white rounded hover:bg-brand-700 font-medium">Oui</button></div></div></div>
+    <div id="text-cleaner-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm"><div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 flex flex-col h-[80vh]"><div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg">Nettoyeur de Texte</h3><button onclick="toggleTextCleaner()" class="text-slate-400 hover:text-red-500 text-2xl">&times;</button></div><div class="flex-1 grid grid-cols-2 gap-4"><textarea id="txt-input" class="w-full h-full p-3 border rounded bg-slate-50 text-xs font-mono resize-none" placeholder="Coller le texte..."></textarea><textarea id="txt-output" class="w-full h-full p-3 border rounded bg-white text-xs font-mono resize-none" readonly></textarea></div><div class="mt-4 flex gap-2 justify-end"><button onclick="cleanText('uppercase')" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded text-sm">MAJUSCULE</button><button onclick="cleanText('lines')" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded text-sm">Sauts</button></div></div></div>
+
+    <script>
+        // --- VARS GLOBALES ---
+        let pdfFiles=[], baseFileName="document", linearPdfBytes=null, flipbookPdfBytes=null, flipBookInstance=null, pendingDuplicationResolve=null, cropImageData=null, hiResScale=4.0;
+        let sortables=[], sortableDest=null, lastSelectedFileId=null, activeLassoContainer=null, isLasso=false, lX, lY, isRes=false;
+
+        const { PDFDocument, degrees, rgb } = PDFLib;
+
+        // --- DOM ---
+        const els={
+            timeline: document.getElementById('timeline'), dockPanel: document.getElementById('dock-panel'), dockDrop: document.getElementById('dock-drop-overlay'),
+            emptyState: document.getElementById('empty-state'), loader: document.getElementById('loading-indicator'), loadingTxt: document.getElementById('loading-text'),
+            previewFrame: document.getElementById('pdf-preview'), previewPlace: document.getElementById('preview-placeholder'), headerActions: document.getElementById('header-actions'),
+            btnAdd: document.getElementById('btn-add-file'), fileCount: document.getElementById('file-count-badge'), dlBtn: document.getElementById('final-download-btn'),
+            stdSpace: document.getElementById('standard-workspace'), mixSpace: document.getElementById('mixer-workspace'), mixSrc: document.getElementById('mixer-source-container'),
+            mixDest: document.getElementById('mixer-dest-list'), mixPlace: document.getElementById('mixer-placeholder'), mixCount: document.getElementById('mixer-count'),
+            mixSide: document.getElementById('mixer-sidebar'), sideResizer: document.getElementById('sidebar-resizer'), lasso: document.getElementById('selection-lasso'),
+            btnDelSel: document.getElementById('btn-delete-selection'), selCount: document.getElementById('selected-count'),
+            filePreviewFrame: document.getElementById('file-preview-frame'), flipBar: document.getElementById('flipbook-progress-bar'), flipTxt: document.getElementById('flipbook-loading-text')
+        };
+
+        // --- UTILS ---
+        function showToast(msg, type='info') {
+            const t = document.createElement('div'); t.className=`toast px-4 py-2 rounded shadow bg-slate-800 text-white text-xs font-bold`;
+            t.innerText = msg; document.getElementById('toast-container').appendChild(t); setTimeout(()=>t.remove(),3000);
+        }
+
+        // --- DOCK LOGIC ---
+        new Sortable(els.timeline, { animation:150, ghostClass:'opacity-50', direction:'horizontal', onEnd:(evt)=>{ const x=pdfFiles.splice(evt.oldIndex,1)[0]; pdfFiles.splice(evt.newIndex,0,x); } });
+        els.dockPanel.addEventListener('dragover', (e)=>{ e.preventDefault(); if(e.dataTransfer.types.includes('Files')){ els.dockDrop.classList.remove('hidden'); els.dockDrop.style.pointerEvents='auto'; }});
+        els.dockDrop.addEventListener('dragleave', ()=>{ els.dockDrop.classList.add('hidden'); els.dockDrop.style.pointerEvents='none'; });
+        els.dockDrop.addEventListener('drop', async(e)=>{ e.preventDefault(); els.dockDrop.classList.add('hidden'); els.dockDrop.style.pointerEvents='none'; const fs=Array.from(e.dataTransfer.files).filter(f=>f.type==='application/pdf'); if(fs.length)els.emptyState.classList.add('hidden'); for(const f of fs) await addPdfToTimeline(f); });
+
+        async function addPdfToTimeline(file) {
+            if(!pdfFiles.length) baseFileName = file.name.replace('.pdf','');
+            const id = Date.now() + Math.random().toString(36).substr(2,9);
+            const ab = await file.arrayBuffer();
+            const doc = await pdfjsLib.getDocument({data:new Uint8Array(ab.slice(0))}).promise;
+            const p = await doc.getPage(1); const vp = p.getViewport({scale:200/p.getViewport({scale:1}).width});
+            const cv = document.createElement('canvas'); cv.width=vp.width; cv.height=vp.height; await p.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+            const card = document.createElement('div'); card.className="pdf-card group relative cursor-grab active:cursor-grabbing bg-white p-2 rounded-lg shadow-sm border border-slate-200 flex flex-col gap-2";
+            card.innerHTML=`<div class="h-24 bg-slate-100 rounded overflow-hidden flex items-center justify-center relative border border-slate-100"><img src="${cv.toDataURL('image/jpeg',0.8)}" class="w-full h-full object-contain pointer-events-none"><div class="absolute inset-0 bg-black/40 hidden group-hover:flex items-center justify-center gap-2 backdrop-blur-[1px] transition"><button onclick="viewInputPdf('${id}')" class="bg-white p-1.5 rounded-full text-slate-700 hover:text-brand-600 shadow-sm">👁️</button><button onclick="removePdf('${id}', this)" class="bg-white p-1.5 rounded-full text-slate-700 hover:text-red-500 shadow-sm">🗑️</button></div></div><div class="px-1"><div class="text-[10px] font-bold text-slate-700 truncate w-full">${file.name}</div><div class="text-[9px] text-slate-400 text-center">${doc.numPages} pages</div></div>`;
+            els.timeline.appendChild(card); pdfFiles.push({id, file, name:file.name, arrayBuffer:ab, pageCount:doc.numPages}); updateFileCount();
+        }
+        window.removePdf=(id,el)=>{ event.stopPropagation(); el.closest('.pdf-card').remove(); pdfFiles=pdfFiles.filter(f=>f.id!==id); updateFileCount(); };
+        function updateFileCount(){ const n=pdfFiles.length; els.fileCount.innerText=n; n?els.fileCount.classList.remove('hidden'):els.fileCount.classList.add('hidden'); }
+
+        // --- MIXER LOGIC ---
+        function updateMixerZoom(v) { document.querySelectorAll('.mixer-grid').forEach(g => g.style.gridTemplateColumns=`repeat(auto-fill, minmax(${v}px, 1fr))`); }
+        function attachThumbEvents(el) { el.onclick=(e)=>handleThumbClick(e,el); const c=el.querySelector('.page-checkbox'); if(c)c.onclick=(e)=>{e.stopPropagation(); toggleSelection(el,e.target.checked); lastSelectedFileId=el;}; const d=el.querySelector('.mixer-delete-btn'); if(d)d.onclick=(e)=>{e.stopPropagation();el.remove();updateMixerCount();updateSelectionUI();}; }
+
+        async function openGlobalMixer() {
+            if(!pdfFiles.length) return showToast("Aucun fichier", "error");
+            els.stdSpace.classList.add('hidden'); els.mixSpace.classList.remove('hidden');
+            els.mixSrc.innerHTML = '<div class="loader m-auto"></div>'; els.mixDest.innerHTML = ''; els.mixDest.appendChild(els.mixPlace); els.mixPlace.classList.remove('hidden'); els.mixCount.innerText = "0 page";
+            if(sortableDest) sortableDest.destroy(); sortables.forEach(s=>s.destroy()); sortables=[];
+            try {
+                sortableDest = new Sortable(els.mixDest, { group: 'global-mixer', animation:150, forceFallback:true, fallbackOnBody:true, fallbackClass:'sortable-fallback', filter:'#mixer-placeholder', onAdd:updateMixerCount, onRemove:updateMixerCount, onSort:updateMixerCount });
+                els.mixSrc.innerHTML = ''; for(const f of pdfFiles) await renderMixerSection(f);
+                updateMixerZoom(120);
+            } catch(e){ console.error(e); closeMixer(); }
+        }
+
+        async function renderMixerSection(f) {
+            const h = document.createElement('div'); h.className="mb-2 mt-4 px-2 font-bold text-slate-700 text-sm border-b pb-1 truncate"; h.innerText=`📄 ${f.name}`; els.mixSrc.appendChild(h);
+            const g = document.createElement('div'); g.className="mixer-grid mb-6"; els.mixSrc.appendChild(g);
+            sortables.push(new Sortable(g, { group:{name:'global-mixer', pull:'clone', put:false}, sort:false, animation:150, forceFallback:true, fallbackOnBody:true, fallbackClass:'sortable-fallback', onEnd:(evt)=>{
+                if(evt.to.id === 'mixer-dest-list') {
+                    const dropped = evt.item; const group = evt.from; const selected = Array.from(group.querySelectorAll('.mixer-thumb.selected'));
+                    if(selected.length && (dropped.classList.contains('selected') || selected.includes(dropped))) {
+                        const frag = document.createDocumentFragment();
+                        selected.forEach(el => { if(el.dataset.pageIndex === dropped.dataset.pageIndex && el.dataset.fileId === dropped.dataset.fileId) return; const clone = el.cloneNode(true); clone.classList.remove('selected'); const chk = clone.querySelector('.page-checkbox'); if(chk){chk.checked=false; chk.classList.add('opacity-0');} attachThumbEvents(clone); frag.appendChild(clone); });
+                        dropped.after(frag); updateMixerCount();
+                    }
+                    dropped.classList.remove('selected'); const c = dropped.querySelector('.page-checkbox'); if(c){c.checked=false; c.classList.add('opacity-0');} attachThumbEvents(dropped);
+                }
+            }}));
+            const d = await pdfjsLib.getDocument({data:new Uint8Array(f.arrayBuffer.slice(0))}).promise;
+            for(let i=1; i<=d.numPages; i++) {
+                const p = await d.getPage(i); const vp = p.getViewport({scale:0.3}); const cv = document.createElement('canvas'); cv.width=vp.width; cv.height=vp.height; await p.render({canvasContext:cv.getContext('2d'), viewport:vp}).promise;
+                const w = document.createElement('div'); w.className = "mixer-thumb group flex flex-col gap-1 items-center select-none relative"; w.dataset.pageIndex = i-1; w.dataset.fileId = f.id;
+                w.innerHTML=`<input type="checkbox" class="page-checkbox opacity-0 group-hover:opacity-100 transition-opacity"><img src="${cv.toDataURL()}" class="w-full h-auto bg-white shadow border rounded pointer-events-none"><div class="mixer-delete-btn">&times;</div><span class="text-[10px] font-bold text-slate-500 mt-1">Page ${i}</span>`;
+                attachThumbEvents(w); g.appendChild(w);
+            }
+        }
+
+        // --- SELECTION LOGIC ---
+        function handleThumbClick(e, el) {
+            if(e.target.tagName==='INPUT' || e.target.className.includes('delete')) return;
+            const isC = e.ctrlKey || e.metaKey; const isS = e.shiftKey;
+            if(isC) toggleSelection(el); else if(isS && lastSelectedFileId) selectRange(lastSelectedFileId, el);
+            else { if(!el.classList.contains('selected')){ clearSelection(); toggleSelection(el, true); lastSelectedFileId=el; } }
+        }
+        function toggleSelection(el, force) {
+            const s = force!==undefined ? force : !el.classList.contains('selected'); const c = el.querySelector('.page-checkbox');
+            s ? (el.classList.add('selected'), c.checked=true, c.classList.remove('opacity-0')) : (el.classList.remove('selected'), c.checked=false, c.classList.add('opacity-0'));
+            updateSelectionUI();
+        }
+        function clearSelection() { document.querySelectorAll('.mixer-thumb.selected').forEach(e=>toggleSelection(e, false)); updateSelectionUI(); }
+        function selectRange(s, e) {
+            const container = s.parentElement; if(container !== e.parentElement) return;
+            const all = Array.from(container.querySelectorAll('.mixer-thumb'));
+            const i1=all.indexOf(s), i2=all.indexOf(e);
+            for(let i=Math.min(i1,i2); i<=Math.max(i1,i2); i++) toggleSelection(all[i], true);
+        }
+        function updateSelectionUI() { const n = els.mixDest.querySelectorAll('.mixer-thumb.selected').length; els.selCount.innerText=n; n>0?els.btnDelSel.classList.remove('hidden'):els.btnDelSel.classList.add('hidden'); }
+        function deleteSelectedPages() { els.mixDest.querySelectorAll('.mixer-thumb.selected').forEach(e=>e.remove()); clearSelection(); updateMixerCount(); }
+
+        // --- LASSO ---
+        window.addEventListener('mousedown', (e) => {
+            if(els.mixSpace.classList.contains('hidden')) return;
+            const sC = e.target.closest('#mixer-source-container'), dC = e.target.closest('#mixer-dest-list');
+            if(!sC && !dC) return; if(e.target.closest('.mixer-thumb')) return;
+            activeLassoContainer = sC || dC; isLasso = true; lX = e.pageX; lY = e.pageY;
+            els.lasso.style.display='block'; els.lasso.style.left=lX+'px'; els.lasso.style.top=lY+'px'; els.lasso.style.width='0'; els.lasso.style.height='0';
+            if(!e.ctrlKey) clearSelection();
+        });
+        window.addEventListener('mousemove', (e) => {
+            if(!isLasso) return;
+            const cX=e.pageX, cY=e.pageY, w=Math.abs(cX-lX), h=Math.abs(cY-lY);
+            els.lasso.style.left=Math.min(cX,lX)+'px'; els.lasso.style.top=Math.min(cY,lY)+'px'; els.lasso.style.width=w+'px'; els.lasso.style.height=h+'px';
+            const r1 = {x:Math.min(cX,lX), y:Math.min(cY,lY), w, h};
+            activeLassoContainer.querySelectorAll('.mixer-thumb').forEach(el => {
+                const b = el.getBoundingClientRect(); const r2 = {x:b.left+window.scrollX, y:b.top+window.scrollY, w:b.width, h:b.height};
+                if (r1.x < r2.x + r2.w && r1.x + r1.w > r2.x && r1.y < r2.y + r2.h && r1.y + r1.h > r2.y) toggleSelection(el, true);
+            });
+        });
+        window.addEventListener('mouseup', () => { if(isLasso){ isLasso=false; activeLassoContainer=null; els.lasso.style.display='none'; } });
+
+        // --- SIDEBAR RESIZE ---
+        els.sideResizer.addEventListener('mousedown', (e)=>{ isRes=true; document.body.style.cursor='col-resize'; e.preventDefault(); });
+        window.addEventListener('mousemove', (e)=>{ if(isRes) { const w=e.clientX; if(w>300 && w<800) els.mixSide.style.width=w+'px'; } });
+        window.addEventListener('mouseup', ()=>{ if(isRes) { isRes=false; document.body.style.cursor='default'; } });
+
+        // --- COMMON ---
+        function updateMixerCount() { const c = els.mixDest.querySelectorAll('.mixer-thumb').length; els.mixCount.innerText=c+" page(s)"; els.mixPlace.classList.toggle('hidden', c>0); }
+        function closeMixer() { els.mixSpace.classList.add('hidden'); els.stdSpace.classList.remove('hidden'); }
+        async function confirmGlobalMixer() {
+            const thumbs = Array.from(els.mixDest.querySelectorAll('.mixer-thumb')); if(!thumbs.length) return showToast("Aucune page", "error");
+            closeMixer(); els.loader.classList.remove('hidden'); els.loadingTxt.innerText="Assemblage...";
+            try {
+                const newDoc = await PDFDocument.create(); const cache={};
+                for(const t of thumbs) {
+                    const fid = t.dataset.fileId;
+                    if(!cache[fid]) { const f=pdfFiles.find(x=>x.id===fid); if(f) cache[fid] = await PDFDocument.load(f.arrayBuffer); }
+                    if(cache[fid]) { const [p] = await newDoc.copyPages(cache[fid], [parseInt(t.dataset.pageIndex)]); newDoc.addPage(p); }
+                }
+                const b = await newDoc.save(); await addPdfToTimeline(new File([b], "Composition.pdf", {type:'application/pdf'})); showToast("Créé !", "success");
+            } catch(e) { console.error(e); } finally { els.loader.classList.add('hidden'); }
+        }
+
+        // --- PROCESS PDF ---
+        function resolveDuplication(c) { document.getElementById('duplication-modal').classList.add('hidden'); if (pendingDuplicationResolve) { pendingDuplicationResolve(c); pendingDuplicationResolve = null; } }
+        async function askUserForDuplication(m) { return new Promise((r) => { pendingDuplicationResolve = r; document.getElementById('dup-desc').textContent = m === 'booklet' ? "Dupliquer sur les 4 faces ?" : "Dupliquer sur gauche et droite ?"; document.getElementById('duplication-modal').classList.remove('hidden'); }); }
+
+        async function processPDF(mode) {
+            if(!pdfFiles.length) return showToast("Aucun fichier", "error");
+            let total = pdfFiles.reduce((acc,f)=>acc+f.pageCount, 0);
+            let shouldDup = false; if(total===1 && (mode==='eco'||mode==='booklet')) shouldDup = await askUserForDuplication(mode);
+
+            closeMixer(); els.previewFrame.classList.add('hidden'); els.previewPlace.classList.add('hidden'); els.loader.classList.remove('hidden'); els.headerActions.classList.add('hidden');
+            try {
+                const mDoc = await PDFDocument.create();
+                for(const f of pdfFiles) { const s=await PDFDocument.load(f.arrayBuffer); (await mDoc.copyPages(s, s.getPageIndices())).forEach(p=>mDoc.addPage(p)); }
+                if(shouldDup) { const [p]=await mDoc.copyPages(mDoc,[0]); if(mode==='eco') mDoc.addPage(p); else {mDoc.addPage(p);mDoc.addPage(p);mDoc.addPage(p);} }
+                
+                flipbookPdfBytes = await mDoc.save(); 
+                let fDoc = mDoc; let suf="_FUSION";
+                if(mode==='eco') {
+                    suf="_ECO"; fDoc=await PDFDocument.create(); const pc=mDoc.getPageCount(), ps=mDoc.getPages();
+                    for(let i=0; i<pc; i+=2) { const s=fDoc.addPage([841.89,595.28]); embedDraw(s,await fDoc.embedPage(ps[i]),'left'); if(i+1<pc) embedDraw(s,await fDoc.embedPage(ps[i+1]),'right'); }
+                } else if(mode==='booklet') {
+                    suf="_LIVRET"; fDoc=await PDFDocument.create(); const ps=mDoc.getPages(), ac=ps.length, tc=Math.ceil(ac/4)*4, ts=tc/4;
+                    for(let s=0; s<ts; s++) { const sr=fDoc.addPage([841.89,595.28]), rl=tc-1-(2*s), rr=2*s; if(rl<ac) embedDraw(sr,await fDoc.embedPage(ps[rl]),'left'); if(rr<ac) embedDraw(sr,await fDoc.embedPage(ps[rr]),'right'); const sv=fDoc.addPage([841.89,595.28]), vl=(2*s)+1, vr=tc-1-(2*s)-1; if(vl<ac) embedDraw(sv,await fDoc.embedPage(ps[vl]),'left'); if(vr<ac) embedDraw(sv,await fDoc.embedPage(ps[vr]),'right'); }
+                } else if(mode==='interro') {
+                    if(!cropImageData) throw new Error("Zone manquante"); suf="_INTERRO"; fDoc=await PDFDocument.create(); const img=await fDoc.embedPng(cropImageData.dataUrl), ow=cropImageData.width/hiResScale, oh=cropImageData.height/hiResScale, p=fDoc.addPage([595.28,841.89]), cps=Math.floor(841.89/(oh+15)), ty=(841.89-((cps*oh)+((cps-1)*15)))/2+(cps*oh)+((cps-1)*15); 
+                    for(let k=0;k<cps;k++) { const y=ty-(k*(oh+15))-oh; p.drawImage(img,{x:(595.28-ow)/2,y:y,width:ow,height:oh}); if(k<cps-1) p.drawLine({start:{x:0,y:y-7.5},end:{x:595.28,y:y-7.5},thickness:1,color:rgb(0.5,0.5,0.5),dashArray:[5,5]}); }
+                    flipbookPdfBytes = await fDoc.save();
+                }
+
+                linearPdfBytes = await fDoc.save(); const u = URL.createObjectURL(new Blob([linearPdfBytes], {type:'application/pdf'}));
+                els.dlBtn.href = u; els.dlBtn.download = baseFileName+suf+".pdf"; els.previewFrame.src=u;
+                els.loader.classList.add('hidden'); els.previewFrame.classList.remove('hidden'); els.headerActions.classList.remove('hidden');
+            } catch(e){ console.error(e); els.loader.classList.add('hidden'); showToast("Erreur: "+e.message, "error"); }
+        }
+        function embedDraw(s,e,pos) { const d=e.scale(1); let w=d.width, h=d.height; const isL=w>h; if(isL){const t=w;w=h;h=t;} const sc=Math.min((420.9-20)/w,(595.28-20)/h); const fw=w*sc, fh=h*sc, x=(420.9-fw)/2, y=(595.28-fh)/2; if(isL) s.drawPage(e,{x:(pos==='right'?420.9:0)+x+fw,y:y,xScale:sc,yScale:sc,rotate:degrees(90)}); else s.drawPage(e,{x:(pos==='right'?420.9:0)+x,y:y,xScale:sc,yScale:sc}); }
+
+        // --- EXTRAS ---
+        window.viewInputPdf=(id)=>{const f=pdfFiles.find(x=>x.id===id); if(f){els.filePreviewFrame.src=URL.createObjectURL(new Blob([f.arrayBuffer],{type:'application/pdf'})); document.getElementById('preview-filename').innerText=f.name; document.getElementById('file-preview-modal').classList.remove('hidden');}};
+        window.closeFilePreview=()=>{document.getElementById('file-preview-modal').classList.add('hidden'); setTimeout(()=>els.filePreviewFrame.src="",300);};
+       
+       async function openCropperModal() {
+  if (!pdfFiles.length) return showToast("Aucun fichier", "error");
+
+  const modal = document.getElementById('cropper-modal');
+  modal.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+
+  const d = await pdfjsLib.getDocument({ data: new Uint8Array(pdfFiles[0].arrayBuffer.slice(0)) }).promise;
+  const p = await d.getPage(1);
+
+  const con = document.getElementById('cropper-scroll-area');
+  const c = document.getElementById('cropper-canvas');
+  const ov = document.getElementById('cropper-overlay');
+
+  // --- 1. CONFIGURATION DU CENTRAGE ---
+  con.style.display = 'flex';
+  con.style.justifyContent = 'center';
+  con.style.alignItems = 'center';
+  con.style.overflow = 'auto';
+
+  // On crée un wrapper s'il n'existe pas pour lier le Canvas et l'Overlay
+  let wrap = document.getElementById('canvas-wrapper');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'canvas-wrapper';
+    wrap.style.position = 'relative'; // Crucial pour que l'overlay soit relatif au PDF
+    con.innerHTML = ''; // On vide pour repartir propre
+    con.appendChild(wrap);
+  }
+  wrap.appendChild(c);
+  wrap.appendChild(ov);
+
+  // --- 2. CALCUL DU ZOOM (FIT SCREEN) ---
+  const vp1 = p.getViewport({ scale: 1 });
+  const margin = 60;
+  const sc = Math.min((con.clientWidth - margin) / vp1.width, (con.clientHeight - margin) / vp1.height);
+  const vp = p.getViewport({ scale: sc });
+
+  c.width = vp.width;
+  c.height = vp.height;
+  wrap.style.width = vp.width + 'px';
+  wrap.style.height = vp.height + 'px';
+
+  await p.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+
+  // --- 3. POSITION INITIALE DE LA SÉLECTION (CENTRÉE SUR LE PDF) ---
+  ov.style.width = (vp.width * 0.8) + 'px';
+  ov.style.height = (vp.height / 4) + 'px';
+  ov.style.left = (vp.width * 0.1) + 'px'; // Centré horizontalement
+  ov.style.top = '40px'; // Un peu décalé du haut
+  ov.style.display = 'block';
+
+  // --- 4. LOGIQUE DE MOUVEMENT (DRAG) ET TAILLE (RESIZE) ---
+  let isD = false, isR = false, sX, sY, sL, sT, sW, sH;
+
+  ov.onmousedown = (e) => {
+    sX = e.clientX; sY = e.clientY;
+    sL = ov.offsetLeft; sT = ov.offsetTop;
+    sW = ov.offsetWidth; sH = ov.offsetHeight;
+
+    // Si on clique sur une poignée (point rouge sur ta capture)
+    if (e.target.classList.contains('resize-handle')) {
+      isR = true;
+    } else {
+      isD = true;
+    }
+    e.preventDefault();
+  };
+
+  window.onmousemove = (e) => {
+    if (!isD && !isR) return;
+    const dx = e.clientX - sX;
+    const dy = e.clientY - sY;
+
+    if (isD) {
+      // Déplacement : limité aux bords du PDF
+      let nL = Math.max(0, Math.min(sL + dx, vp.width - ov.offsetWidth));
+      let nT = Math.max(0, Math.min(sT + dy, vp.height - ov.offsetHeight));
+      ov.style.left = nL + 'px';
+      ov.style.top = nT + 'px';
+    } else if (isR) {
+      // Redimensionnement (coin bas-droit)
+      let nW = Math.max(50, Math.min(sW + dx, vp.width - ov.offsetLeft));
+      let nH = Math.max(50, Math.min(sH + dy, vp.height - ov.offsetTop));
+      ov.style.width = nW + 'px';
+      ov.style.height = nH + 'px';
+    }
+  };
+
+  window.onmouseup = () => { isD = false; isR = false; };
+
+  // --- 5. GÉNÉRATION DU RÉSULTAT ---
+  window.confirmCropAndGenerate = async () => {
+    const rx = ov.offsetLeft / vp.width;
+    const ry = ov.offsetTop / vp.height;
+    const rw = ov.offsetWidth / vp.width;
+    const rh = ov.offsetHeight / vp.height;
+
+    const hiResScale = 2; // On génère en haute qualité
+    const vp2 = p.getViewport({ scale: hiResScale });
+    const c2 = document.createElement('canvas');
+    c2.width = vp2.width; c2.height = vp2.height;
+    await p.render({ canvasContext: c2.getContext('2d'), viewport: vp2 }).promise;
+
+    const c3 = document.createElement('canvas');
+    c3.width = rw * c2.width;
+    c3.height = rh * c2.height;
+    c3.getContext('2d').drawImage(c2, rx * c2.width, ry * c2.height, c3.width, c3.height, 0, 0, c3.width, c3.height);
+
+    cropImageData = { dataUrl: c3.toDataURL('image/png'), width: c3.width, height: c3.height };
+    modal.classList.add('hidden');
+    processPDF('interro');
+  };
+} function closeCropperModal() { document.getElementById('cropper-modal').classList.add('hidden'); }
+        async function openFlipbook() {
+            if(!linearPdfBytes && !flipbookPdfBytes) return showToast("Générez d'abord", "error");
+            flipbookModal.classList.remove('hidden'); flipbookLoader.classList.remove('hidden'); document.getElementById('flipbook').style.visibility='hidden';
+            els.flipBar.style.width='0%'; els.flipTxt.innerText="Préparation...";
+            const c=document.getElementById('flipbook-container'), old=document.getElementById('flipbook'); if(old) old.remove();
+            const n=document.createElement('div'); n.id='flipbook'; n.className='shadow-2xl'; n.style.visibility='hidden'; c.insertBefore(n, c.firstChild);
+            if(flipBookInstance) try{flipBookInstance.destroy();}catch(e){} flipBookInstance=null;
+            try {
+                const pdf=await pdfjsLib.getDocument({data:new Uint8Array(flipbookPdfBytes||linearPdfBytes)}).promise; const html=[];
+                for(let i=1; i<=pdf.numPages; i++) {
+                    const p=await pdf.getPage(i); const pct=Math.round((i/pdf.numPages)*100); els.flipBar.style.width=pct+'%'; els.flipTxt.innerText=`Rendu ${i}/${pdf.numPages}`; await new Promise(r=>setTimeout(r,0));
+                    let v=p.getViewport({scale:1}); let r=v.rotation; if(v.width>v.height) r=(r+90)%360; v=p.getViewport({scale:1,rotation:r});
+                    const sc=636/v.height, sv=p.getViewport({scale:sc,rotation:r}), d=document.createElement('div'); d.className='page-content';
+                    const cv=document.createElement('canvas'); cv.width=sv.width; cv.height=sv.height; await p.render({canvasContext:cv.getContext('2d'),viewport:sv}).promise; d.appendChild(cv); html.push(d);
+                }
+                html.forEach(h=>n.appendChild(h));
+                setTimeout(()=>{ try{flipBookInstance=new St.PageFlip(n,{width:450,height:636,size:'stretch',maxShadowOpacity:0.5,showCover:true}); flipBookInstance.loadFromHTML(document.querySelectorAll('.page-content')); n.style.visibility='visible'; flipbookLoader.classList.add('hidden');}catch(e){console.error(e);} },100);
+            } catch(e){ console.error(e); flipbookLoader.classList.add('hidden'); }
+        }
+        function closeFlipbook() { flipbookModal.classList.add('hidden'); if(flipBookInstance) try{flipBookInstance.destroy();}catch(e){} }
+        function toggleTextCleaner() { document.getElementById('text-cleaner-modal').classList.toggle('hidden'); }
+        function cleanText(a) { const i=document.getElementById('txt-input').value; document.getElementById('txt-output').value=a==='uppercase'?i.toUpperCase():i.replace(/(\r\n|\n|\r)/gm," "); }
+    </script>
+</body>
+</html>

@@ -4,988 +4,508 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prof Toolbox</title>
+    <title>Prof Toolbox - V12 (Final Refined)</title>
 
     <script src="ext.js"></script>
-
+   
     <script>
         tailwind.config = { theme: { extend: { colors: { brand: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 900: '#0c4a6e' } } } } }
     </script>
     <style>
-        /* --- GENERAL --- */
-        body {
-            overflow: hidden;
-            user-select: none;
-        }
-
-        .workspace-pattern {
-            background-color: #f8fafc;
-            background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
-            background-size: 20px 20px;
-        }
-
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-top: 1px solid #e2e8f0;
-            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05);
-        }
-
-        .dock-scrollbar::-webkit-scrollbar {
-            height: 8px;
-            width: 8px;
-        }
-
-        .dock-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .dock-scrollbar::-webkit-scrollbar-thumb {
-            background-color: #cbd5e1;
-            border-radius: 20px;
-        }
+        :root { --dock-size: 140px; --mixer-src-size: 120px; --mixer-dest-size: 140px; --montage-src-size: 110px; }
+        body { overflow: hidden; user-select: none; }
+        .workspace-pattern { background-color: #f8fafc; background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 20px 20px; }
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-top: 1px solid #e2e8f0; box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.05); }
+        .dock-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+        .dock-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .dock-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
 
         /* CARDS */
-        .pdf-card {
-            transition: all 0.2s ease;
-            width: 140px;
-            flex-shrink: 0;
-            border: 2px solid transparent;
-            cursor: pointer;
-            position: relative;
+        .pdf-card { transition: width 0.1s ease; width: var(--dock-size); flex-shrink: 0; border: 2px solid transparent; cursor: pointer; position: relative; }
+        .pdf-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .pdf-card.selected-file { border-color: #0ea5e9; background-color: #f0f9ff; transform: translateY(-2px); }
+        .pdf-card > div:first-child { height: calc(var(--dock-size) * 0.7); } 
+        #btn-add-file { width: calc(var(--dock-size) * 0.8) !important; height: calc(var(--dock-size) * 0.8) !important; font-size: calc(var(--dock-size) * 0.2); }
+        .type-badge { position: absolute; top: 4px; right: 4px; padding: 2px 4px; border-radius: 4px; font-size: 9px; font-weight: bold; color: white; z-index: 10; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); }
+        .card-btn { background: white; border-radius: 9999px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); transition: all 0.1s; border: 1px solid #e2e8f0; }
+        .card-btn:hover { transform: scale(1.1); border-color: #cbd5e1; }
+
+        /* GRILLES */
+        #mixer-dest-list { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(var(--mixer-dest-size), 1fr)); align-content: start; }
+        #mixer-source-container .mixer-grid { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(var(--mixer-src-size), 1fr)); }
+        #montage-source-list .mixer-grid, #montage-lib-list.mixer-grid { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(var(--montage-src-size), 1fr)); }
+        
+        .mixer-thumb { cursor: pointer; position: relative; background: white; border-radius: 0.5rem; padding: 0.25rem; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); transition: all 0.1s; user-select: none; }
+        .mixer-thumb:hover { border-color: #cbd5e1; }
+        
+        /* STYLE SELECTION */
+        .mixer-thumb.selected-mixer-item { border: 2px solid #3b82f6; background-color: #eff6ff; transform: scale(0.95); }
+        /* Checkmark (Bouton V) - NEW V12 */
+        .selection-check {
+            position: absolute; top: 4px; left: 4px;
+            width: 18px; height: 18px; background: #3b82f6; color: white;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 10px; z-index: 30; cursor: pointer;
+            display: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
+        .selection-check:hover { background: #2563eb; transform: scale(1.1); }
+        .mixer-thumb.selected-mixer-item .selection-check { display: flex; }
 
-        .pdf-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        }
+        .mixer-thumb img { display: block; width: 100%; height: auto; pointer-events: none; border-radius: 0.25rem; }
+        .delete-btn-overlay { position: absolute; top: -8px; right: -8px; background: white; border: 1px solid #fee2e2; color: #ef4444; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; z-index: 20; opacity: 0; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
+        .delete-btn-overlay:hover { background: #ef4444; color: white; transform: scale(1.1); }
+        .mixer-thumb:hover .delete-btn-overlay { opacity: 1; }
 
-        .pdf-card.selected-file {
-            border-color: #0ea5e9;
-            background-color: #f0f9ff;
-            transform: translateY(-2px);
-        }
+        /* LASSO */
+        #selection-lasso { position: absolute; border: 1px solid #3b82f6; background-color: rgba(59, 130, 246, 0.2); display: none; pointer-events: none; z-index: 9999; }
 
-        .type-badge {
-            position: absolute;
-            top: 4px;
-            right: 4px;
-            padding: 2px 4px;
-            border-radius: 4px;
-            font-size: 8px;
-            font-weight: bold;
-            color: white;
-            z-index: 10;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-        }
+        /* OTHERS */
+        #cropper-container { position: relative; display: inline-block; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); border: 2px solid #cbd5e1; cursor: crosshair; }
+        #cropper-overlay { position: absolute; border: 2px dashed #ef4444; background-color: rgba(239, 68, 68, 0.1); cursor: move; display: none; z-index: 10; }
+        .resize-handle { position: absolute; width: 14px; height: 14px; background: #ef4444; border: 2px solid white; border-radius: 50%; z-index: 20; }
+        .handle-nw { top: -7px; left: -7px; cursor: nw-resize; } .handle-ne { top: -7px; right: -7px; cursor: ne-resize; }
+        .handle-sw { bottom: -7px; left: -7px; cursor: sw-resize; } .handle-se { bottom: -7px; right: -7px; cursor: se-resize; }
+        
+        #montage-scroll-area { flex: 1; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 40px; background-color: #e2e8f0; }
+        .montage-paper { background: white; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); border: 1px solid #cbd5e1; position: relative; overflow: hidden; transform-origin: top center; transition: width 0.3s, height 0.3s; flex-shrink: 0; }
+        .draggable-item { position: absolute; cursor: move; border: 1px solid transparent; }
+        .draggable-item.active { border: 1px dashed #3b82f6; }
+        .draggable-item img { width: 100%; height: 100%; pointer-events: none; display: block; }
+        .item-controls { display: none; position: absolute; top: -35px; left: 50%; transform: translateX(-50%); background: #1e293b; border-radius: 6px; padding: 4px; gap: 8px; z-index: 2000; }
+        .draggable-item:hover .item-controls, .draggable-item.active .item-controls { display: flex; }
+        .ctrl-btn { color: white; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 4px; }
+        .ctrl-btn:hover { background: #334155; }
+        .ctrl-btn.delete { color: #fca5a5; } .ctrl-btn.delete:hover { background: #7f1d1d; }
+        .resize-corner { width: 12px; height: 12px; background: #3b82f6; border: 2px solid white; border-radius: 50%; position: absolute; bottom: -6px; right: -6px; cursor: se-resize; display: none; z-index: 50; }
+        .draggable-item:hover .resize-corner, .draggable-item.active .resize-corner { display: block; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .sortable-fallback { opacity: 1 !important; cursor: grabbing !important; z-index: 999999 !important; background: white; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); transform: scale(1.05); }
 
-        .card-btn {
-            background: white;
-            border-radius: 9999px;
-            width: 26px;
-            height: 26px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            transition: all 0.1s;
-            border: 1px solid #e2e8f0;
-        }
+        .zoom-control { display: flex; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.8); padding: 0.1rem 0.4rem; border-radius: 99px; border: 1px solid #e2e8f0; }
+        .zoom-slider { width: 60px; height: 4px; accent-color: #64748b; cursor: pointer; }
 
-        .card-btn:hover {
-            transform: scale(1.1);
-            border-color: #cbd5e1;
-        }
+        .resizer-x { width: 6px; cursor: col-resize; background: transparent; border-left: 1px solid #e2e8f0; transition: background 0.2s; z-index: 40; flex-shrink: 0; }
+        .resizer-x:hover, .resizer-x.resizing { background: #3b82f6; border-left-color: #3b82f6; }
+        .resizer-y { height: 6px; cursor: row-resize; background: transparent; width: 100%; position: absolute; top: 0; left: 0; z-index: 60; transition: background 0.2s; }
+        .resizer-y:hover, .resizer-y.resizing { background: #3b82f6; }
 
-        .card-btn svg {
-            width: 14px;
-            height: 14px;
-        }
-
-        /* CROPPER */
-        #cropper-container {
-            position: relative;
-            display: inline-block;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-            border: 2px solid #cbd5e1;
-            cursor: crosshair;
-        }
-
-        #cropper-overlay {
-            position: absolute;
-            border: 2px dashed #ef4444;
-            background-color: rgba(239, 68, 68, 0.1);
-            cursor: move;
-            display: none;
-            z-index: 10;
-        }
-
-        .resize-handle {
-            position: absolute;
-            width: 14px;
-            height: 14px;
-            background: #ef4444;
-            border: 2px solid white;
-            border-radius: 50%;
-            z-index: 20;
-        }
-
-        .handle-nw {
-            top: -7px;
-            left: -7px;
-            cursor: nw-resize;
-        }
-
-        .handle-ne {
-            top: -7px;
-            right: -7px;
-            cursor: ne-resize;
-        }
-
-        .handle-sw {
-            bottom: -7px;
-            left: -7px;
-            cursor: sw-resize;
-        }
-
-        .handle-se {
-            bottom: -7px;
-            right: -7px;
-            cursor: se-resize;
-        }
-
-        /* MIXER / LIB */
-        .mixer-grid {
-            display: grid;
-            gap: 1rem;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            align-content: start;
-        }
-
-        .mixer-thumb {
-            cursor: grab;
-            position: relative;
-            background: white;
-            border-radius: 0.5rem;
-            padding: 0.25rem;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-            transition: border-color 0.1s;
-        }
-
-        .mixer-thumb:hover {
-            border-color: #cbd5e1;
-        }
-
-        .mixer-thumb img {
-            display: block;
-            width: 100%;
-            height: auto;
-            pointer-events: none;
-            border-radius: 0.25rem;
-        }
-
-        .delete-btn-overlay {
-            position: absolute;
-            top: -8px;
-            right: -8px;
-            background: white;
-            border: 1px solid #fee2e2;
-            color: #ef4444;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            cursor: pointer;
-            z-index: 20;
-            opacity: 0;
-            transition: all 0.2s;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .delete-btn-overlay:hover {
-            background: #ef4444;
-            color: white;
-            transform: scale(1.1);
-        }
-
-        .mixer-thumb:hover .delete-btn-overlay {
-            opacity: 1;
-        }
-
-        /* MONTAGE */
-        #montage-scroll-area {
-            flex: 1;
-            overflow: auto;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            padding: 40px;
-            background-color: #e2e8f0;
-        }
-
-        .montage-paper {
-            background: white;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-            border: 1px solid #cbd5e1;
-            position: relative;
-            overflow: hidden;
-            transform-origin: top center;
-            transition: width 0.3s, height 0.3s;
-            flex-shrink: 0;
-        }
-
-        .draggable-item {
-            position: absolute;
-            cursor: move;
-            border: 1px solid transparent;
-        }
-
-        .draggable-item.active {
-            border: 1px dashed #3b82f6;
-        }
-
-        .draggable-item img {
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            display: block;
-        }
-
-        .item-controls {
-            display: none;
-            position: absolute;
-            top: -35px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #1e293b;
-            border-radius: 6px;
-            padding: 4px;
-            gap: 8px;
-            z-index: 2000;
-        }
-
-        .draggable-item:hover .item-controls,
-        .draggable-item.active .item-controls {
-            display: flex;
-        }
-
-        .ctrl-btn {
-            color: white;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            border-radius: 4px;
-        }
-
-        .ctrl-btn:hover {
-            background: #334155;
-        }
-
-        .ctrl-btn.delete {
-            color: #fca5a5;
-        }
-
-        .ctrl-btn.delete:hover {
-            background: #7f1d1d;
-        }
-
-        .resize-corner {
-            width: 12px;
-            height: 12px;
-            background: #3b82f6;
-            border: 2px solid white;
-            border-radius: 50%;
-            position: absolute;
-            bottom: -6px;
-            right: -6px;
-            cursor: se-resize;
-            display: none;
-            z-index: 50;
-        }
-
-        .draggable-item:hover .resize-corner,
-        .draggable-item.active .resize-corner {
-            display: block;
-        }
-
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-        }
-
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-
-        .sortable-fallback {
-            opacity: 1 !important;
-            cursor: grabbing !important;
-            z-index: 999999 !important;
-            background: white;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-            transform: scale(1.05);
-        }
-
-        /* FLIPBOOK */
-        #booklet-flip-wrapper {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-        }
-
-        #booklet-flip-container {
-            width: 400px;
-            height: 560px;
-        }
-
-        .flip-page {
-            background-color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.05);
-            border: 1px solid #f0f0f0;
-        }
-
-        .flip-page img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-
-        .flip-arrow {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            background: rgba(255, 255, 255, 0.8);
-            border: 1px solid #ddd;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            font-size: 20px;
-            cursor: pointer;
-            z-index: 50;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .flip-arrow:hover {
-            background: white;
-            transform: translateY(-50%) scale(1.1);
-        }
-
-        .flip-prev {
-            left: 20px;
-        }
-
-        .flip-next {
-            right: 20px;
-        }
-
-        /* Guide Anim */
-        .perspective-container {
-            perspective: 1000px;
-            width: 160px;
-            height: 100px;
-            margin: 0 auto;
-        }
-
-        .paper-sheet {
-            width: 100%;
-            height: 100%;
-            position: relative;
-            transform-style: preserve-3d;
-            animation: flipShortEdge 4s infinite ease-in-out;
-        }
-
-        .paper-face {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            backface-visibility: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            border: 2px solid #cbd5e1;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .face-front {
-            background: white;
-            color: #334155;
-            z-index: 2;
-        }
-
-        .face-back {
-            background: #e0f2fe;
-            color: #0284c7;
-            transform: rotateX(180deg);
-        }
-
-        @keyframes flipShortEdge {
-
-            0%,
-            100% {
-                transform: rotateX(0deg);
-            }
-
-            40%,
-            60% {
-                transform: rotateX(180deg);
-            }
-        }
-
-        .short-edge-indicator {
-            position: absolute;
-            right: -10px;
-            top: 0;
-            bottom: 0;
-            width: 4px;
-            background: repeating-linear-gradient(to bottom, #ef4444 0, #ef4444 10px, transparent 10px, transparent 20px);
-        }
-
-        /* Help Tabs */
-        .help-tab-content {
-            display: none;
-        }
-
-        .help-tab-content.active {
-            display: block;
-        }
-
-        .help-tab-btn.active {
-            border-bottom: 2px solid #2563eb;
-            color: #1e40af;
-            background-color: #eff6ff;
-        }
+        /* HELP TABS */
+        .help-tab-content { display: none; }
+        .help-tab-content.active { display: block; }
+        .help-tab-btn.active { border-bottom: 2px solid #2563eb; color: #1e40af; background-color: #eff6ff; }
     </style>
 </head>
 
 <body class="bg-slate-100 h-screen flex flex-col text-slate-800 font-sans overflow-hidden">
 
-    <header
-        class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-30 shadow-sm relative">
-
+    <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-30 shadow-sm relative">
         <div class="flex items-center gap-3 w-64">
-            <div
-                class="w-8 h-8 bg-brand-600 rounded text-white flex items-center justify-center font-bold text-lg shadow-sm">
-                P</div>
+            <div class="w-8 h-8 bg-brand-600 rounded text-white flex items-center justify-center font-bold text-lg shadow-sm">P</div>
             <div>
                 <h1 class="font-bold text-md text-slate-700 leading-tight">Prof Toolbox</h1>
                 <div class="text-[10px] text-slate-400 font-medium">L'Atelier Complet</div>
             </div>
         </div>
-
-        <div
-            class="absolute left-1/2 transform -translate-x-1/2 flex bg-slate-100 p-1 rounded-lg border border-slate-200 shadow-inner">
-            <button onclick="processPDF('merge')"
-                class="px-3 py-1.5 text-slate-600 hover:text-brand-600 hover:bg-white rounded-md font-medium text-xs transition flex flex-col items-center gap-1"
-                title="Fusionner"><span>🔗</span> Fusion</button>
+        <div class="absolute left-1/2 transform -translate-x-1/2 flex bg-slate-100 p-1 rounded-lg border border-slate-200 shadow-inner">
+            <button onclick="processPDF('merge')" class="px-3 py-1.5 text-slate-600 hover:text-brand-600 hover:bg-white rounded-md font-medium text-xs transition flex flex-col items-center gap-1"><span>🔗</span> Fusion</button>
             <div class="w-px bg-slate-300 mx-1 my-1"></div>
-            <button onclick="processPDF('eco')"
-                class="px-3 py-1.5 text-slate-600 hover:text-green-600 hover:bg-white rounded-md font-medium text-xs transition flex flex-col items-center gap-1"
-                title="2 pages par feuille"><span>🌿</span> Mode A5</button>
-
-            <button onclick="previewBookletLinear()"
-                class="px-3 py-1.5 text-slate-600 hover:text-purple-600 hover:bg-white rounded-md font-medium text-xs transition flex flex-col items-center gap-1"
-                title="Créer un livret (Aperçu)"><span>📖</span> Livret</button>
-
+            <button onclick="processPDF('eco')" class="px-3 py-1.5 text-slate-600 hover:text-green-600 hover:bg-white rounded-md font-medium text-xs transition flex flex-col items-center gap-1"><span>🌿</span> Mode A5</button>
+            <button onclick="previewBookletLinear()" class="px-3 py-1.5 text-slate-600 hover:text-purple-600 hover:bg-white rounded-md font-medium text-xs transition flex flex-col items-center gap-1"><span>📖</span> Livret</button>
             <div class="w-px bg-slate-300 mx-1 my-1"></div>
-            <button onclick="checkSelectionAndCrop()"
-                class="px-3 py-1.5 text-slate-600 hover:text-red-500 hover:bg-white rounded-md font-medium text-xs transition flex flex-col items-center gap-1"
-                title="Découper une zone (PDF immédiat)"><span>✂️</span> Interro</button>
+            <button onclick="checkSelectionAndCrop()" class="px-3 py-1.5 text-slate-600 hover:text-red-500 hover:bg-white rounded-md font-medium text-xs transition flex flex-col items-center gap-1"><span>✂️</span> Interro</button>
             <div class="w-px bg-slate-300 mx-1 my-1"></div>
-            <button onclick="openGlobalMixer()"
-                class="px-3 py-1.5 text-slate-600 hover:text-indigo-600 hover:bg-white rounded-md font-medium text-xs transition flex flex-col items-center gap-1"><span>🎛️</span>
-                Mixage</button>
-            <button onclick="openMontage()"
-                class="px-3 py-1.5 text-slate-600 hover:text-pink-600 hover:bg-white rounded-md font-medium text-xs transition flex flex-col items-center gap-1"><span>🎨</span>
-                Montage</button>
+            <button onclick="openGlobalMixer()" class="px-3 py-1.5 text-slate-600 hover:text-indigo-600 hover:bg-white rounded-md font-medium text-xs transition flex flex-col items-center gap-1"><span>🎛️</span> Mixage</button>
+            <button onclick="openMontage()" class="px-3 py-1.5 text-slate-600 hover:text-pink-600 hover:bg-white rounded-md font-medium text-xs transition flex flex-col items-center gap-1"><span>🎨</span> Montage</button>
         </div>
-
         <div class="flex items-center gap-2 w-auto justify-end">
-
-            <button onclick="toggleTextCleaner()"
-                class="text-slate-400 hover:text-slate-600 p-2 rounded hover:bg-slate-100 transition"
-                title="Nettoyeur de texte">
-                <span class="text-lg">🧹</span>
-            </button>
-
-            <button onclick="openDonationModal()"
-                class="text-pink-500 hover:text-pink-600 p-2 rounded-full hover:bg-pink-50 transition transform hover:scale-110"
-                title="Soutenir le projet">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd"
-                        d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
-                        clip-rule="evenodd" />
-                </svg>
-            </button>
-
-            <button onclick="openGeneralHelp()"
-                class="bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-bold text-xs hover:bg-indigo-200 transition border border-indigo-300 flex items-center gap-1"
-                title="Aide Générale">
-                <span>❓</span> Aide
-            </button>
-
+            <button onclick="openGeneralHelp()" class="bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-bold text-xs hover:bg-indigo-200 transition border border-indigo-300 flex items-center gap-1"><span>❓</span> Aide</button>
             <div id="header-actions" class="hidden flex gap-2 ml-2 pl-2 border-l border-slate-300">
-
-                <button onclick="document.getElementById('print-guide-modal').classList.remove('hidden')"
-                    class="bg-amber-100 text-amber-700 px-3 py-1.5 rounded-lg font-bold text-xs hover:bg-amber-200 transition border border-amber-300 flex items-center gap-1"
-                    title="Guide d'impression">
-                    <span>🖨️</span> Guide
-                </button>
-
-                <a id="final-download-btn" href="#" download=""
-                    class="bg-green-600 text-white px-4 py-1.5 rounded-lg font-bold text-xs hover:bg-green-700 shadow flex items-center gap-2 transition transform hover:scale-[1.02]">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                    </svg>
-                    Télécharger
-                </a>
+                <a id="final-download-btn" href="#" download="" class="bg-green-600 text-white px-4 py-1.5 rounded-lg font-bold text-xs hover:bg-green-700 shadow flex items-center gap-2 transition transform hover:scale-[1.02]">Télécharger</a>
             </div>
-
         </div>
     </header>
 
     <main class="flex-1 relative overflow-hidden flex flex-col workspace-pattern">
-
         <div id="standard-workspace" class="absolute inset-0 flex flex-col">
-            <div id="preview-placeholder"
-                class="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
-                <div
-                    class="bg-white p-8 rounded-xl shadow-lg border border-slate-200 flex flex-col items-center max-w-md text-center">
-                    <svg class="w-16 h-16 mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
-                        </path>
-                    </svg>
+            <div id="preview-placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+                <div class="bg-white p-8 rounded-xl shadow-lg border border-slate-200 flex flex-col items-center max-w-md text-center">
                     <h2 class="text-lg font-bold text-slate-600 mb-1">Espace de Travail</h2>
-                    <p class="text-sm text-slate-400">Glissez vos fichiers en bas.<br>Cliquez sur une vignette pour la
-                        sélectionner.</p>
+                    <p class="text-sm text-slate-400">Glissez vos fichiers en bas.<br>Cliquez sur une vignette pour la sélectionner.</p>
                 </div>
             </div>
-            <div id="loading-indicator"
-                class="hidden fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm">
-                <div class="loader mb-4"></div>
-                <span class="font-bold text-slate-700 text-lg animate-pulse">Traitement...</span>
+            <div id="loading-indicator" class="hidden fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm">
+                <div class="loader mb-4"></div><span class="font-bold text-slate-700 text-lg animate-pulse">Traitement...</span>
             </div>
-            <div class="flex-1 p-8 flex items-center justify-center overflow-hidden relative z-10"><iframe
-                    id="pdf-preview"
-                    class="hidden w-full h-full max-w-[1200px] border border-slate-300 shadow-2xl rounded bg-white"></iframe>
+            <div class="flex-1 p-8 flex items-center justify-center overflow-hidden relative z-10">
+                <iframe id="pdf-preview" class="hidden w-full h-full max-w-[1200px] border border-slate-300 shadow-2xl rounded bg-white"></iframe>
             </div>
         </div>
 
         <div id="mixer-workspace" class="hidden absolute inset-0 z-20 flex bg-slate-100">
-            <div id="mixer-sidebar" class="w-[300px] bg-white border-r border-slate-200 flex flex-col shadow-lg z-20">
-                <div class="px-4 py-3 border-b border-slate-100 bg-slate-50 flex justify-between items-center"><span
-                        class="font-bold text-slate-700 text-xs uppercase tracking-wider">📄 Sources</span><button
-                        onclick="closeWorkspaces()" class="text-xs text-slate-400 hover:text-slate-600">Fermer</button>
+            <div id="mixer-sidebar" class="bg-white border-r border-slate-200 flex flex-col shadow-lg z-20 shrink-0" style="width: 300px; min-width: 200px;">
+                <div class="px-4 py-3 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                    <div class="flex items-center gap-2"><span class="font-bold text-slate-700 text-xs uppercase tracking-wider">📄 Sources</span><button id="btn-add-selection" onclick="addSelectionToMixer()" class="hidden text-[10px] bg-blue-600 text-white px-2 py-0.5 rounded shadow hover:bg-blue-700 animate-pulse">Ajouter (0)</button></div>
+                    <div class="zoom-control"><span class="text-[10px]">🔍</span><input type="range" min="80" max="200" value="120" class="zoom-slider" id="mixer-src-zoom"></div>
                 </div>
-                <div id="mixer-source-container" class="flex-1 overflow-y-auto p-4 space-y-4"></div>
+                <div id="mixer-source-container" class="flex-1 overflow-y-auto p-4 space-y-4 relative"><div id="selection-lasso"></div></div>
             </div>
+            <div class="resizer-x" id="resizer-mixer"></div>
             <div class="flex-1 flex flex-col relative bg-slate-100 min-w-0">
-                <div
-                    class="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10 shrink-0">
-                    <h2 class="font-bold text-lg text-slate-800">Mixage <span
-                            class="text-xs font-normal text-slate-500 ml-2">(Double-clic pour découper)</span></h2>
-                    <div class="flex items-center gap-4"><span id="mixer-count"
-                            class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold">0
-                            page</span><button onclick="confirmGlobalMixer()"
-                            class="px-4 py-1.5 bg-indigo-600 text-white font-bold text-sm rounded shadow hover:bg-indigo-700 flex items-center gap-2 transition">✅
-                            Générer PDF</button></div>
-                </div>
-                <div id="mixer-dest-list"
-                    class="flex-1 overflow-y-auto p-8 mixer-grid content-start border-2 border-dashed border-transparent">
-                    <div id="mixer-placeholder"
-                        class="col-span-full h-full flex flex-col items-center justify-center text-slate-300 pointer-events-none">
-                        <p class="text-lg font-medium">Glissez les pages ici</p>
+                <div class="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10 shrink-0">
+                    <div class="flex items-center gap-4">
+                        <h2 class="font-bold text-lg text-slate-800">Mixage</h2>
+                        <div class="zoom-control ml-4"><span class="text-[10px]">🔍</span><input type="range" min="100" max="300" value="140" class="zoom-slider w-24" id="mixer-dest-zoom"></div>
                     </div>
+                    <div class="flex items-center gap-4">
+                        <span id="mixer-count" class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold">0 page</span>
+                        <button onclick="confirmGlobalMixer()" class="px-4 py-1.5 bg-indigo-600 text-white font-bold text-sm rounded shadow hover:bg-indigo-700 flex items-center gap-2 transition">✅ Générer PDF</button>
+                        <button onclick="closeWorkspaces()" class="text-xs text-slate-400 hover:text-slate-600">Fermer</button>
+                    </div>
+                </div>
+                <div id="mixer-dest-list" class="flex-1 overflow-y-auto p-8 content-start border-2 border-dashed border-transparent">
+                    <div id="mixer-placeholder" class="col-span-full h-full flex flex-col items-center justify-center text-slate-300 pointer-events-none"><p class="text-lg font-medium">Glissez les pages ici<br><span class="text-xs">Ou sélectionnez-les à gauche</span></p></div>
                 </div>
             </div>
         </div>
 
         <div id="montage-workspace" class="hidden absolute inset-0 z-20 flex bg-slate-100">
-            <div class="w-[350px] bg-white border-r border-slate-200 flex flex-col shadow-lg z-20 relative">
+            <div id="montage-sidebar" class="bg-white border-r border-slate-200 flex flex-col shadow-lg z-20 relative shrink-0" style="width: 350px; min-width: 250px;">
                 <div class="flex border-b border-slate-200 text-xs font-bold text-slate-600">
-                    <button id="mt-tab-src" onclick="switchMontageTab('src')"
-                        class="flex-1 py-3 text-center border-b-2 border-pink-600 bg-pink-50 text-pink-700">Fichiers</button>
-                    <button id="mt-tab-lib" onclick="switchMontageTab('lib')"
-                        class="flex-1 py-3 text-center border-b-2 border-transparent hover:bg-slate-50">Bibliothèque</button>
+                    <button id="mt-tab-src" onclick="switchMontageTab('src')" class="flex-1 py-3 text-center border-b-2 border-pink-600 bg-pink-50 text-pink-700">Fichiers</button>
+                    <button id="mt-tab-lib" onclick="switchMontageTab('lib')" class="flex-1 py-3 text-center border-b-2 border-transparent hover:bg-slate-50">Bibliothèque</button>
                 </div>
-                <div id="mt-content-src" class="flex-1 overflow-y-auto p-4 space-y-4">
-                    <div class="text-[10px] text-slate-400 mb-2 text-center">Cliquez pour découper / Glissez pour coller
-                    </div>
-                    <div id="montage-source-list"></div>
+                <div class="px-4 py-2 border-b bg-slate-50 flex justify-between items-center">
+                    <span class="text-[10px] uppercase text-slate-400 font-bold">Vignettes</span>
+                    <div class="zoom-control"><span class="text-[10px]">🔍</span><input type="range" min="80" max="200" value="110" class="zoom-slider" id="montage-src-zoom"></div>
                 </div>
+                <div id="mt-content-src" class="flex-1 overflow-y-auto p-4 space-y-4"><div id="montage-source-list"></div></div>
                 <div id="mt-content-lib" class="hidden flex-1 flex flex-col overflow-hidden bg-slate-50">
-                    <div class="p-2 border-b border-slate-200 flex justify-between items-center bg-white"><span
-                            class="text-[10px] font-bold text-slate-500">MES DÉCOUPAGES</span>
+                    <div class="p-2 border-b border-slate-200 flex justify-between items-center bg-white">
                         <div class="flex gap-2">
-                            <button onclick="askImportLibrary()"
-                                class="text-[10px] bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded border flex items-center gap-1"
-                                title="Importer">📂 Charger</button>
-                            <button onclick="exportLibrary()"
-                                class="text-[10px] bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded border flex items-center gap-1"
-                                title="Exporter">💾 Sauver</button>
-                            <input type="file" id="lib-import-input" class="hidden" accept=".json"
-                                onchange="handleLibImport(this)">
+                            <button onclick="askImportLibrary()" class="text-[10px] bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded border">📂 Charger</button>
+                            <button onclick="exportLibrary()" class="text-[10px] bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded border">💾 Sauver</button>
+                            <input type="file" id="lib-import-input" class="hidden" accept=".json" onchange="handleLibImport(this)">
                         </div>
                     </div>
                     <div id="montage-lib-list" class="flex-1 overflow-y-auto p-4 mixer-grid content-start"></div>
                 </div>
             </div>
+            <div class="resizer-x" id="resizer-montage"></div>
             <div class="flex-1 flex flex-col relative bg-slate-200 min-w-0 overflow-hidden">
-                <div
-                    class="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10 shrink-0">
+                <div class="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10 shrink-0">
                     <div class="flex items-center gap-4">
                         <h2 class="font-bold text-lg text-slate-800">Montage</h2>
-                        <div class="flex bg-slate-100 rounded p-1 gap-1"><button
-                                onclick="setMontageOrientation('portrait')"
-                                class="px-2 py-1 text-xs font-bold rounded bg-white shadow-sm text-slate-700">Portrait</button><button
-                                onclick="setMontageOrientation('landscape')"
-                                class="px-2 py-1 text-xs font-bold rounded hover:bg-white text-slate-500">Paysage</button>
+                        <div class="flex bg-slate-100 rounded p-1 gap-1">
+                            <button onclick="setMontageOrientation('portrait')" class="px-2 py-1 text-xs font-bold rounded bg-white shadow-sm text-slate-700">Portrait</button>
+                            <button onclick="setMontageOrientation('landscape')" class="px-2 py-1 text-xs font-bold rounded hover:bg-white text-slate-500">Paysage</button>
                         </div>
+                        <button onclick="addWhiteRect()" class="p-1.5 bg-white border rounded hover:bg-slate-50 flex items-center gap-1 shadow-sm text-xs font-bold text-slate-700"><span>⬜</span> Gomme</button>
                     </div>
-
-                    <button onclick="addWhiteRect()"
-                        class="p-1.5 bg-white border rounded hover:bg-slate-50 flex items-center gap-1 shadow-sm text-xs font-bold text-slate-700"
-                        title="Gomme / Cache"><span>⬜</span> Gomme</button>
-
                     <div class="flex items-center gap-4">
-                        <div class="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-full border border-slate-200">
-                            <span class="text-[10px] font-bold text-slate-400">ZOOM</span><input
-                                id="montage-zoom-slider" type="range" min="0.3" max="1.5" step="0.1" value="0.8"
-                                oninput="updateMontageZoom(this.value)" class="w-24 accent-pink-600 cursor-pointer h-1">
-                        </div><button onclick="generateMontagePDF()"
-                            class="px-4 py-1.5 bg-pink-600 text-white font-bold text-sm rounded shadow hover:bg-pink-700 flex items-center gap-2 transition"><span>✅</span>
-                            PDF</button><button onclick="closeWorkspaces()"
-                            class="text-slate-400 hover:text-slate-600">&times;</button>
+                        <div class="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-full border border-slate-200"><span class="text-[10px] font-bold text-slate-400">PAPIER</span><input id="montage-zoom-slider" type="range" min="0.3" max="1.5" step="0.1" value="0.8" oninput="updateMontageZoom(this.value)" class="w-24 accent-pink-600 cursor-pointer h-1"></div>
+                        <button onclick="generateMontagePDF()" class="px-4 py-1.5 bg-pink-600 text-white font-bold text-sm rounded shadow hover:bg-pink-700 flex items-center gap-2 transition"><span>✅</span> PDF</button>
+                        <button onclick="closeWorkspaces()" class="text-slate-400 hover:text-slate-600">&times;</button>
                     </div>
                 </div>
-                <div id="montage-scroll-area">
-                    <div id="montage-paper" class="montage-paper" style="width: 595px; height: 842px;"></div>
-                </div>
+                <div id="montage-scroll-area"><div id="montage-paper" class="montage-paper" style="width: 595px; height: 842px;"></div></div>
             </div>
         </div>
     </main>
 
-    <div id="dock-panel" class="h-48 glass-panel shrink-0 flex flex-col relative z-30 border-t border-slate-200">
-        <div class="px-4 py-2 flex justify-between items-center border-b border-slate-200/50 bg-white/50 relative z-10">
-            <h3 class="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">📂 Fichiers <span
-                    id="file-count-badge"
-                    class="bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full text-[10px] hidden">0</span></h3>
-            <div class="text-[10px] text-slate-400 italic">Cliquez pour sélectionner • Glissez pour ajouter</div>
-        </div>
-        <div id="dock-drop-overlay"
-            class="absolute inset-0 z-50 hidden flex flex-col items-center justify-center text-brand-600 pointer-events-none bg-brand-50/90">
-            <span class="text-xl font-bold">DÉPOSER ICI</span>
-        </div>
-        <div class="flex-1 overflow-x-auto dock-scrollbar p-4 flex gap-4 items-center relative z-10"
-            id="dock-container">
-            <div id="btn-add-file"
-                class="w-28 h-28 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center text-slate-400 hover:bg-white hover:border-brand-400 transition cursor-pointer shrink-0 bg-slate-50/50 group">
-                <span
-                    class="text-3xl mb-1 group-hover:scale-110 transition text-slate-300 group-hover:text-brand-400">+</span><span
-                    class="text-[10px] font-medium text-center px-2">Ajouter</span>
+    <div id="dock-panel" class="glass-panel shrink-0 flex flex-col relative z-30 border-t border-slate-200" style="height: 200px; min-height: 120px;">
+        <div class="resizer-y" id="resizer-dock"></div>
+        <div class="px-4 py-2 flex justify-between items-center border-b border-slate-200/50 bg-white/50 relative z-10 select-none">
+            <div class="flex items-center gap-4">
+                <h3 class="text-xs font-bold text-slate-500 uppercase flex items-center gap-2">📂 Fichiers <span id="file-count-badge" class="bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full text-[10px] hidden">0</span></h3>
+                <div class="flex items-center gap-2 bg-slate-100 rounded-full px-2 py-0.5 border border-slate-200 group/zoom hover:border-slate-300 transition-colors"><span class="text-[10px] text-slate-400">🔍</span><input type="range" min="80" max="250" value="140" step="5" class="w-20 h-1 accent-brand-600 cursor-pointer opacity-70 group-hover/zoom:opacity-100 transition-opacity" id="dock-zoom"></div>
             </div>
-            <div id="timeline" class="flex gap-4 items-center h-full">
-                <div id="empty-state" class="text-xs text-slate-400 italic px-4 whitespace-nowrap">Glissez vos fichiers
-                    ici...</div>
+            <div class="text-[10px] text-slate-400 italic">Cliquez pour sélectionner • Ctrl+Molette pour zoomer</div>
+        </div>
+        <div id="dock-drop-overlay" class="absolute inset-0 z-50 hidden flex flex-col items-center justify-center text-brand-600 pointer-events-none bg-brand-50/90 mt-2"><span class="text-xl font-bold">DÉPOSER ICI</span></div>
+        <div class="flex-1 overflow-x-auto dock-scrollbar p-4 flex gap-4 items-center relative z-10" id="dock-container">
+            <div id="btn-add-file" class="border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center text-slate-400 hover:bg-white hover:border-brand-400 transition cursor-pointer shrink-0 bg-slate-50/50 group">
+                <span class="mb-1 group-hover:scale-110 transition text-slate-300 group-hover:text-brand-400">+</span><span class="text-[10px] font-medium text-center px-2">Ajouter</span>
             </div>
+            <div id="timeline" class="flex gap-4 items-center h-full"><div id="empty-state" class="text-xs text-slate-400 italic px-4 whitespace-nowrap">Glissez vos fichiers ici...</div></div>
         </div>
     </div>
 
     <div id="toast-container" class="fixed bottom-52 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
-    <div id="file-preview-modal"
-        class="fixed inset-0 bg-slate-900/90 z-[60] hidden flex flex-col items-center justify-center backdrop-blur-sm">
+
+    <div id="file-preview-modal" class="fixed inset-0 bg-slate-900/90 z-[60] hidden flex flex-col items-center justify-center backdrop-blur-sm">
         <div class="w-11/12 h-[90vh] flex flex-col bg-white rounded-lg shadow-2xl overflow-hidden relative">
-            <div class="bg-slate-800 text-white px-4 py-3 flex justify-between items-center shrink-0">
-                <h3 class="font-bold text-md" id="preview-filename">Aperçu</h3><button onclick="closeFilePreview()"
-                    class="hover:bg-slate-600 rounded p-1 transition">&times; Fermer</button>
-            </div>
-            <div class="flex-1 bg-slate-100 relative overflow-hidden flex items-center justify-center"
-                id="preview-container"></div>
+            <div class="bg-slate-800 text-white px-4 py-3 flex justify-between items-center shrink-0"><h3 class="font-bold text-md" id="preview-filename">Aperçu</h3><button onclick="closeFilePreview()" class="hover:bg-slate-600 rounded p-1 transition">&times; Fermer</button></div>
+            <div class="flex-1 bg-slate-100 relative overflow-hidden flex items-center justify-center" id="preview-container"></div>
         </div>
     </div>
 
-    <div id="cropper-modal"
-        class="fixed inset-0 bg-slate-900/95 z-50 hidden flex flex-col items-center justify-center backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300">
-        <div
-            class="w-full max-w-6xl h-[90vh] flex flex-col bg-white rounded-lg shadow-2xl overflow-hidden transform scale-95 transition-transform duration-300">
+    <div id="cropper-modal" class="fixed inset-0 bg-slate-900/95 z-50 hidden flex flex-col items-center justify-center backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="w-full max-w-6xl h-[90vh] flex flex-col bg-white rounded-lg shadow-2xl overflow-hidden transform scale-95 transition-transform duration-300">
             <div class="bg-slate-50 px-6 py-3 border-b flex justify-between items-center shrink-0">
-                <div>
-                    <h3 class="font-bold text-lg text-slate-700">Découpage</h3>
-                    <p class="text-xs text-slate-500">Dessinez la zone à garder.</p>
+                <div><h3 class="font-bold text-lg text-slate-700">Découpage</h3><p class="text-xs text-slate-500">Dessinez la zone à garder.</p></div>
+                <div class="flex items-center gap-3 bg-white px-3 py-1 rounded shadow-sm border" id="cropper-pagination">
+                    <button onclick="changeCropPage(-1)" class="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-600 font-bold">&larr;</button><span id="crop-page-indicator" class="text-xs font-bold text-slate-700 w-20 text-center">Page 1</span><button onclick="changeCropPage(1)" class="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-600 font-bold">&rarr;</button>
                 </div>
-                <div class="flex items-center gap-3 bg-white px-3 py-1 rounded shadow-sm border"
-                    id="cropper-pagination"><button onclick="changeCropPage(-1)"
-                        class="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-600 font-bold">&larr;</button><span
-                        id="crop-page-indicator" class="text-xs font-bold text-slate-700 w-20 text-center">Page
-                        1</span><button onclick="changeCropPage(1)"
-                        class="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-600 font-bold">&rarr;</button></div>
-                <div class="flex gap-3"><button onclick="closeCropperModal()"
-                        class="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded">Annuler</button><button
-                        id="btn-crop-lib" onclick="saveCropToLibrary()"
-                        class="hidden px-4 py-2 bg-pink-50 text-pink-700 border border-pink-200 font-bold rounded shadow hover:bg-pink-100 flex items-center gap-2"><span>💾</span>
-                        Biblio</button><button id="btn-crop-gen" onclick="confirmCropAndGenerate()"
-                        class="hidden px-6 py-2 bg-brand-600 text-white font-bold rounded shadow hover:bg-brand-700 flex items-center gap-2"><span>✂️</span>
-                        Créer</button></div>
+                <div class="flex gap-3"><button onclick="closeCropperModal()" class="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded">Annuler</button><button id="btn-crop-lib" onclick="saveCropToLibrary()" class="hidden px-4 py-2 bg-pink-50 text-pink-700 border border-pink-200 font-bold rounded shadow hover:bg-pink-100 flex items-center gap-2"><span>💾</span> Biblio</button><button id="btn-crop-gen" onclick="confirmCropAndGenerate()" class="hidden px-6 py-2 bg-brand-600 text-white font-bold rounded shadow hover:bg-brand-700 flex items-center gap-2"><span>✂️</span> Créer</button></div>
             </div>
-            <div class="flex-1 overflow-auto bg-slate-200 p-8 flex justify-center items-start" id="cropper-scroll-area">
-                <div id="cropper-container"><canvas id="cropper-canvas" class="block"></canvas>
-                    <div id="cropper-overlay">
-                        <div class="resize-handle handle-nw"></div>
-                        <div class="resize-handle handle-ne"></div>
-                        <div class="resize-handle handle-sw"></div>
-                        <div class="resize-handle handle-se"></div>
-                    </div>
-                </div>
-            </div>
+            <div class="flex-1 overflow-auto bg-slate-200 p-8 flex justify-center items-start" id="cropper-scroll-area"><div id="cropper-container"><canvas id="cropper-canvas" class="block"></canvas><div id="cropper-overlay"><div class="resize-handle handle-nw"></div><div class="resize-handle handle-ne"></div><div class="resize-handle handle-sw"></div><div class="resize-handle handle-se"></div></div></div></div>
         </div>
     </div>
-
-    <div id="booklet-preview-modal"
-        class="fixed inset-0 bg-slate-900/90 z-[90] hidden flex flex-col items-center justify-center backdrop-blur-sm">
+    
+    <div id="booklet-preview-modal" class="fixed inset-0 bg-slate-900/90 z-[90] hidden flex flex-col items-center justify-center backdrop-blur-sm">
         <div class="w-11/12 h-[90vh] flex flex-col bg-slate-100 rounded-lg shadow-2xl overflow-hidden relative">
             <div class="bg-indigo-600 text-white px-6 py-4 flex justify-between items-center shrink-0">
-                <div>
-                    <h3 class="font-bold text-lg">Aperçu du Livret (Ordre de lecture)</h3>
-                    <p class="text-xs opacity-75">Vérifiez l'ordre des pages avant d'imprimer.</p>
-                </div>
+                <div><h3 class="font-bold text-lg">Aperçu du Livret</h3></div>
                 <div class="flex gap-3">
-                    <button onclick="downloadGeneratedBooklet()"
-                        class="bg-white text-indigo-700 px-4 py-1.5 rounded font-bold hover:bg-indigo-50 transition shadow">⬇️
-                        Télécharger le PDF</button>
-                    <button onclick="closeBookletPreview()"
-                        class="hover:bg-indigo-500 rounded p-1 text-2xl">&times;</button>
+                    <button onclick="openPrintHelp()" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded font-bold text-sm border border-white/40 flex items-center gap-2">🖨️ Guide Impression</button>
+                    <button onclick="downloadGeneratedBooklet()" class="bg-white text-indigo-700 px-4 py-1.5 rounded font-bold hover:bg-indigo-50 transition shadow">⬇️ PDF</button>
+                    <button onclick="closeBookletPreview()" class="hover:bg-indigo-500 rounded p-1 text-2xl">&times;</button>
                 </div>
             </div>
-            <div class="flex-1 relative flex items-center justify-center p-8 bg-slate-200 overflow-hidden">
-                <div id="booklet-loader" class="absolute z-10 hidden flex flex-col items-center">
-                    <div class="loader mb-2"></div><span class="text-slate-500 font-bold">Préparation du livre...</span>
-                </div>
-                <div id="booklet-flip-wrapper">
-                    <button class="flip-arrow flip-prev" onclick="if(bookletFlip) bookletFlip.flipPrev()">❮</button>
-                    <button class="flip-arrow flip-next" onclick="if(bookletFlip) bookletFlip.flipNext()">❯</button>
-                </div>
-            </div>
-            <div class="bg-white p-3 flex justify-center text-xs text-slate-500 border-t">Utilisez les flèches ou la
-                souris pour tourner les pages.</div>
+            <div class="flex-1 relative flex items-center justify-center p-8 bg-slate-200 overflow-hidden"><div id="booklet-flip-wrapper"><div id="booklet-flip-container"></div></div></div>
         </div>
     </div>
 
-    <div id="lib-warning-modal"
-        class="fixed inset-0 bg-black/60 z-[90] hidden flex items-center justify-center backdrop-blur-sm">
+    <div id="print-help-modal" class="fixed inset-0 bg-slate-900/90 z-[100] hidden flex flex-col items-center justify-center backdrop-blur-sm p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-bounce-short">
+            <div class="bg-slate-800 text-white px-6 py-4 flex justify-between items-center shrink-0">
+                <h3 class="font-bold text-lg">🖨️ Guide d'Impression Livret</h3>
+                <button onclick="document.getElementById('print-help-modal').classList.add('hidden')" class="hover:bg-slate-700 rounded px-2 text-xl">&times;</button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-8 space-y-6 text-slate-700 text-sm leading-relaxed">
+                <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                    <p class="font-bold text-yellow-700">Info Importante</p>
+                    <p>Le fichier PDF que vous allez télécharger est déjà "imposé". Cela signifie que les pages sont mélangées (par ex: la page 1 est avec la dernière page) pour qu'une fois plié, tout soit dans l'ordre.</p>
+                </div>
+
+                <div class="border rounded-lg p-4 bg-slate-50">
+                    <h4 class="font-bold text-indigo-600 text-lg mb-2">Cas 1 : Imprimante Recto-Verso (Automatique)</h4>
+                    <p class="mb-2">C'est le cas le plus courant. Dans les paramètres d'impression de votre lecteur PDF (Adobe, Edge, Chrome...) :</p>
+                    <ul class="list-disc pl-5 space-y-1">
+                        <li>Activez l'impression <strong>Recto-Verso</strong> (Two-sided).</li>
+                        <li><strong>TRÈS IMPORTANT :</strong> Choisissez l'option <strong>"Retourner sur les bords COURTS"</strong> (Flip on short edge).</li>
+                    </ul>
+                    <p class="text-xs text-red-500 mt-2 italic">⚠️ Si vous choisissez "Bords Longs", le dos de votre livret sera imprimé à l'envers !</p>
+                </div>
+
+                <div class="border rounded-lg p-4 bg-slate-50">
+                    <h4 class="font-bold text-pink-600 text-lg mb-2">Cas 2 : Imprimante Manuelle (Pas de Recto-Verso)</h4>
+                    <p class="mb-2">Vous devez imprimer en deux temps. Ne changez pas l'ordre des feuilles !</p>
+                    <ol class="list-decimal pl-5 space-y-2">
+                        <li>Dans les options d'impression, choisissez d'imprimer uniquement les <strong>Pages IMPAIRES</strong>.</li>
+                        <li>Lancez l'impression.</li>
+                        <li>Prenez le paquet de feuilles sorti (sans le mélanger) et remettez-le dans le bac à papier.
+                            <br><span class="text-xs italic text-slate-500">(Astuce : Faites un test avec une feuille marquée au crayon pour savoir dans quel sens votre imprimante avale le papier : face imprimée dessus ou dessous ?)</span>
+                        </li>
+                        <li>Lancez l'impression des <strong>Pages PAIRES</strong>.</li>
+                    </ol>
+                </div>
+            </div>
+            <div class="p-4 border-t bg-slate-50 text-right">
+                <button onclick="document.getElementById('print-help-modal').classList.add('hidden')" class="bg-indigo-600 text-white px-6 py-2 rounded font-bold hover:bg-indigo-700">J'ai compris</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="lib-warning-modal" class="fixed inset-0 bg-black/60 z-[90] hidden flex items-center justify-center backdrop-blur-sm">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 flex flex-col">
             <h3 class="text-lg font-bold text-slate-900 mb-2">Charger une bibliothèque</h3>
             <p class="text-sm text-slate-600 mb-6">Que souhaitez-vous faire des éléments existants ?</p>
-            <div class="flex flex-col gap-3">
-                <button onclick="confirmImportLib('merge')"
-                    class="w-full py-3 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded hover:bg-indigo-100 font-bold flex items-center justify-center gap-2"><span>➕</span>
-                    Fusionner (Ajouter à l'existant)</button>
-                <button onclick="confirmImportLib('replace')"
-                    class="w-full py-3 bg-red-50 border border-red-200 text-red-700 rounded hover:bg-red-100 font-bold flex items-center justify-center gap-2"><span>🗑️</span>
-                    Remplacer (Tout effacer)</button>
-                <button onclick="document.getElementById('lib-warning-modal').classList.add('hidden')"
-                    class="text-xs text-slate-400 hover:text-slate-600 mt-2">Annuler</button>
-            </div>
+            <div class="flex flex-col gap-3"><button onclick="confirmImportLib('merge')" class="w-full py-3 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded hover:bg-indigo-100 font-bold flex items-center justify-center gap-2"><span>➕</span> Fusionner</button><button onclick="confirmImportLib('replace')" class="w-full py-3 bg-red-50 border border-red-200 text-red-700 rounded hover:bg-red-100 font-bold flex items-center justify-center gap-2"><span>🗑️</span> Remplacer</button><button onclick="document.getElementById('lib-warning-modal').classList.add('hidden')" class="text-xs text-slate-400 hover:text-slate-600 mt-2">Annuler</button></div>
         </div>
     </div>
 
-    <div id="duplication-modal"
-        class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center backdrop-blur-sm">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 flex flex-col animate-bounce-short">
-            <h3 class="text-lg font-bold text-gray-900 text-center mb-2" id="dup-title">Option Livret</h3>
-            <p class="text-sm text-gray-500 text-center mb-6" id="dup-desc">Dupliquer pour remplir les 4 faces ?</p>
-            <div class="flex gap-3 justify-center"><button onclick="resolveDuplication(false)"
-                    class="w-full py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 font-medium">Non</button><button
-                    onclick="resolveDuplication(true)"
-                    class="w-full py-2 bg-brand-600 text-white rounded hover:bg-brand-700 font-medium">Oui</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="print-guide-modal"
-        class="fixed inset-0 bg-slate-900/90 z-[80] hidden flex flex-col items-center justify-center backdrop-blur-sm transition-opacity">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-bounce-short">
-            <div class="bg-indigo-600 p-4 text-white flex justify-between items-center">
-                <h3 class="font-bold text-lg flex items-center gap-2">🖨️ Guide d'impression Livret</h3><button
-                    onclick="document.getElementById('print-guide-modal').classList.add('hidden')"
-                    class="hover:bg-indigo-500 rounded p-1">&times;</button>
-            </div>
-            <div class="p-6 flex flex-col gap-4 text-slate-700 max-h-[80vh] overflow-y-auto">
-                <p class="text-sm italic text-center mb-2">Le fichier PDF généré contient 2 pages de livre par feuille
-                    A4 Paysage.</p>
-                <div class="border-b pb-4">
-                    <h4 class="font-bold text-indigo-700 mb-2">Option 1 : Imprimante Recto-Verso (Automatique)</h4>
-                    <div class="flex items-start gap-3 bg-blue-50 p-3 rounded border border-blue-200">
-                        <span class="text-2xl">✅</span>
-                        <div>
-                            <p class="font-bold text-sm">Le réglage CRUCIAL : "Bords Courts"</p>
-                            <ul class="list-disc pl-4 text-xs mt-1 space-y-1">
-                                <li>Cochez <strong>Recto-Verso</strong> (Two-sided).</li>
-                                <li>Choisissez <strong>Retourner sur les bords COURTS</strong> (Flip on Short Edge).
-                                </li>
-                            </ul>
-                            <p class="text-[10px] text-red-500 mt-1">Si vous choisissez "Bords Longs", le dos sera à
-                                l'envers !</p>
-                        </div>
-                    </div>
-                </div>
-                <div>
-                    <h4 class="font-bold text-indigo-700 mb-2">Option 2 : Imprimante Manuelle</h4>
-                    <div class="bg-slate-50 p-3 rounded border border-slate-200 text-xs space-y-2">
-                        <p>Si votre imprimante ne fait pas le recto-verso :</p>
-                        <ol class="list-decimal pl-4 space-y-2">
-                            <li>Imprimez d'abord les <strong>pages IMPAIRES</strong> du PDF (Feuille 1, 3, 5...).</li>
-                            <li>Remettez les feuilles imprimées dans le bac d'alimentation (attention au sens !).</li>
-                            <li>Imprimez les <strong>pages PAIRES</strong> du PDF (Feuille 2, 4, 6...).</li>
-                        </ol>
-                    </div>
-                </div>
-                <button onclick="document.getElementById('print-guide-modal').classList.add('hidden')"
-                    class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-bold transition mt-2">J'ai
-                    compris, fermer</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="main-help-modal"
-        class="fixed inset-0 bg-slate-900/90 z-[90] hidden flex flex-col items-center justify-center backdrop-blur-sm">
+    <div id="main-help-modal" class="fixed inset-0 bg-slate-900/90 z-[90] hidden flex flex-col items-center justify-center backdrop-blur-sm">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden">
             <div class="bg-slate-800 text-white px-6 py-4 flex justify-between items-center shrink-0">
                 <h2 class="text-xl font-bold">📚 Guide Complet</h2>
-                <button onclick="document.getElementById('main-help-modal').classList.add('hidden')"
-                    class="hover:bg-slate-700 rounded px-2 text-xl">&times;</button>
+                <button onclick="document.getElementById('main-help-modal').classList.add('hidden')" class="hover:bg-slate-700 rounded px-2 text-xl">&times;</button>
             </div>
             <div class="flex border-b bg-slate-100">
-                <button onclick="switchHelpTab('gen')" id="ht-gen"
-                    class="help-tab-btn active px-6 py-3 font-bold text-sm">Général</button>
-                <button onclick="switchHelpTab('tools')" id="ht-tools"
-                    class="help-tab-btn px-6 py-3 font-bold text-sm text-slate-500">Outils</button>
-                <button onclick="switchHelpTab('mont')" id="ht-mont"
-                    class="help-tab-btn px-6 py-3 font-bold text-sm text-slate-500">Montage</button>
+                <button onclick="switchHelpTab('gen')" id="ht-gen" class="help-tab-btn active px-6 py-3 font-bold text-sm">Général</button>
+                <button onclick="switchHelpTab('tools')" id="ht-tools" class="help-tab-btn px-6 py-3 font-bold text-sm text-slate-500">Outils</button>
+                <button onclick="switchHelpTab('mont')" id="ht-mont" class="help-tab-btn px-6 py-3 font-bold text-sm text-slate-500">Montage</button>
             </div>
             <div class="flex-1 overflow-y-auto p-8 bg-white">
-                <div id="hc-gen" class="help-tab-content active space-y-4">
-                    <h3 class="text-lg font-bold text-slate-800">Bienvenue</h3>
-                    <p class="text-slate-600">Cet outil 100% sécurisé (rien n'est envoyé sur internet) permet de
-                        manipuler vos PDF et Images.</p>
-                    <div class="grid grid-cols-2 gap-4 mt-4">
-                        <div class="bg-blue-50 p-4 rounded border border-blue-100"><strong>1. Ajoutez</strong> vos
-                            fichiers en bas.</div>
-                        <div class="bg-green-50 p-4 rounded border border-green-100"><strong>2. Sélectionnez</strong>
-                            les fichiers à traiter en cliquant dessus (ils deviennent bleus).</div>
+                <div id="hc-gen" class="help-tab-content active space-y-6">
+                    <h3 class="text-lg font-bold text-slate-800">Bienvenue sur Prof Toolbox</h3>
+                    <p class="text-slate-600">Cette application web a été conçue pour simplifier la manipulation de documents PDF et d'images pour les enseignants et les élèves. Elle fonctionne entièrement dans votre navigateur, ce qui garantit une sécurité totale : aucun fichier n'est envoyé sur un serveur distant.</p>
+                    
+                    <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                        <h4 class="font-bold text-blue-800 mb-2">🚀 Démarrage Rapide</h4>
+                        <ol class="list-decimal pl-5 space-y-2 text-sm text-blue-900">
+                            <li><strong>Déposez vos fichiers</strong> (PDF ou Images) dans la zone du bas (le Dock).</li>
+                            <li><strong>Sélectionnez</strong> les fichiers à traiter en cliquant dessus (ils deviennent bleus).</li>
+                            <li><strong>Choisissez un outil</strong> dans la barre du haut (Fusion, Eco, Livret...).</li>
+                        </ol>
                     </div>
                 </div>
-                <div id="hc-tools" class="help-tab-content space-y-4">
-                    <h3 class="text-lg font-bold text-slate-800">Fonctions Rapides</h3>
-                    <ul class="space-y-4">
-                        <li class="flex gap-3"><span class="text-2xl">🔗</span>
-                            <div><strong>Fusion :</strong> Combine tous les fichiers sélectionnés en un seul PDF.</div>
-                        </li>
-                        <li class="flex gap-3"><span class="text-2xl">🌿</span>
-                            <div><strong>A5 (Eco) :</strong> Réduit 2 pages sur une seule feuille A4 pour économiser le
-                                papier et l'encre.</div>
-                        </li>
-                        <li class="flex gap-3"><span class="text-2xl">📖</span>
-                            <div><strong>Livret :</strong> Imposition automatique (pliage). Cliquez pour voir l'aperçu
-                                avant impression.</div>
-                        </li>
-                        <li class="flex gap-3"><span class="text-2xl">✂️</span>
-                            <div><strong>Interro :</strong> Ouvre un outil de découpage pour extraire un exercice précis
-                                et créer un PDF immédiat.</div>
-                        </li>
-                    </ul>
+
+                <div id="hc-tools" class="help-tab-content space-y-6">
+                    <h3 class="text-lg font-bold text-slate-800">Détail des Outils</h3>
+                    
+                    <div class="space-y-4">
+                        <div class="flex gap-4 p-4 border rounded hover:bg-slate-50">
+                            <span class="text-3xl">🔗</span>
+                            <div>
+                                <strong class="text-slate-800">Fusion (Merge)</strong>
+                                <p class="text-sm text-slate-600">Assemble tous les fichiers sélectionnés en un seul PDF, dans l'ordre du Dock.</p>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-4 p-4 border rounded hover:bg-slate-50">
+                            <span class="text-3xl">🌿</span>
+                            <div>
+                                <strong class="text-slate-800">Mode A5 (Eco)</strong>
+                                <p class="text-sm text-slate-600">Place 2 pages de vos documents sur une seule feuille A4 Paysage.</p>
+                                <ul class="list-disc pl-4 text-xs text-slate-500 mt-1">
+                                    <li>Idéal pour économiser du papier.</li>
+                                    <li>Rotation automatique des pages en paysage pour optimiser la place.</li>
+                                    <li>Redimensionnement intelligent : rien n'est coupé !</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-4 p-4 border rounded hover:bg-slate-50">
+                            <span class="text-3xl">📖</span>
+                            <div>
+                                <strong class="text-slate-800">Livret</strong>
+                                <p class="text-sm text-slate-600">Crée un livret A5 prêt à être plié. L'outil effectue l'imposition (mélange des pages) automatiquement.</p>
+                                <p class="text-xs text-indigo-600 mt-1">💡 Utilisez le bouton "Guide Impression" dans l'aperçu pour les réglages imprimante.</p>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-4 p-4 border rounded hover:bg-slate-50">
+                            <span class="text-3xl">✂️</span>
+                            <div>
+                                <strong class="text-slate-800">Interro (Découpage)</strong>
+                                <p class="text-sm text-slate-600">Permet d'extraire rapidement un exercice ou une image d'un PDF.</p>
+                                <p class="text-xs text-slate-500 mt-1">Sélectionnez une zone, et l'outil crée instantanément un PDF A4 rempli avec 4 copies de cette zone.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex gap-4 p-4 border rounded hover:bg-slate-50">
+                            <span class="text-3xl">🎛️</span>
+                            <div>
+                                <strong class="text-slate-800">Mixage</strong>
+                                <p class="text-sm text-slate-600">L'outil ultime pour réorganiser des pages.</p>
+                                <ul class="list-disc pl-4 text-xs text-slate-500 mt-1">
+                                    <li>Voyez toutes les pages de vos PDF séparément.</li>
+                                    <li>Sélectionnez celles que vous voulez (clic, ou lasso).</li>
+                                    <li>Créez un nouveau document avec juste ce qu'il faut.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div id="hc-mont" class="help-tab-content space-y-4">
+
+                <div id="hc-mont" class="help-tab-content space-y-6">
                     <h3 class="text-lg font-bold text-slate-800">Atelier de Montage</h3>
-                    <p class="text-sm text-slate-600">Pour créer des fiches d'exercices sur mesure.</p>
-                    <ul class="list-disc pl-5 space-y-2 text-slate-700">
-                        <li><strong>Accès :</strong> Vous pouvez ouvrir le montage même sans fichier (pour utiliser la
-                            bibliothèque).</li>
-                        <li><strong>Ajouter :</strong> Glissez une page depuis la liste "Fichiers" (à gauche) vers la
-                            feuille blanche.</li>
-                        <li><strong>Découper :</strong> Cliquez sur une page à gauche pour ouvrir l'outil ciseaux,
-                            découpez, et enregistrez dans la Bibliothèque.</li>
-                        <li><strong>Gomme (⬜) :</strong> Ajoute un rectangle blanc pour masquer des parties
-                            indésirables. Il reste toujours au premier plan.</li>
-                        <li><strong>Modifier :</strong> Sur la feuille, cliquez sur les petits ciseaux d'une image pour
-                            la recadrer.</li>
-                    </ul>
+                    <p class="text-slate-600 text-sm">Créez des fiches d'exercices personnalisées en plaçant librement des images sur une feuille blanche.</p>
+                    
+                    <div class="grid grid-cols-2 gap-6">
+                        <div>
+                            <h4 class="font-bold text-pink-600 text-sm mb-2">Comment faire ?</h4>
+                            <ul class="list-disc pl-5 text-sm text-slate-600 space-y-2">
+                                <li>Glissez des pages depuis la liste de gauche vers la feuille blanche.</li>
+                                <li>Utilisez l'outil <strong>Ciseaux</strong> sur une page à gauche pour découper juste un exercice et le mettre en bibliothèque.</li>
+                                <li>Glissez des éléments depuis la <strong>Bibliothèque</strong>.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-pink-600 text-sm mb-2">Outils sur la feuille</h4>
+                            <ul class="list-disc pl-5 text-sm text-slate-600 space-y-2">
+                                <li><strong>Déplacer :</strong> Cliquez et glissez un élément.</li>
+                                <li><strong>Redimensionner :</strong> Utilisez la poignée bleue en bas à droite de chaque image.</li>
+                                <li><strong>Gomme (⬜) :</strong> Ajoute un carré blanc pour cacher des numéros ou du texte.</li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="text-cleaner-modal"
-        class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center backdrop-blur-sm">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 flex flex-col h-[80vh]">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="font-bold text-lg">Nettoyeur de Texte</h3><button onclick="toggleTextCleaner()"
-                    class="text-slate-400 hover:text-red-500 text-2xl">&times;</button>
-            </div>
-            <div class="flex-1 grid grid-cols-2 gap-4"><textarea id="txt-input"
-                    class="w-full h-full p-3 border rounded bg-slate-50 text-xs font-mono resize-none"
-                    placeholder="Coller le texte..."></textarea><textarea id="txt-output"
-                    class="w-full h-full p-3 border rounded bg-white text-xs font-mono resize-none" readonly></textarea>
-            </div>
-            <div class="mt-4 flex gap-2 justify-end"><button onclick="cleanText('uppercase')"
-                    class="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded text-sm">MAJUSCULE</button><button
-                    onclick="cleanText('lines')"
-                    class="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded text-sm">Sauts</button></div>
-        </div>
+    <div id="duplication-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center backdrop-blur-sm">
+         <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 flex flex-col animate-bounce-short">
+             <h3 class="text-lg font-bold text-gray-900 text-center mb-2" id="dup-title">Option Livret</h3>
+             <p class="text-sm text-gray-500 text-center mb-6" id="dup-desc">Dupliquer ?</p>
+             <div class="flex gap-3 justify-center"><button onclick="resolveDuplication(false)" class="w-full py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 font-medium">Non</button><button onclick="resolveDuplication(true)" class="w-full py-2 bg-brand-600 text-white rounded hover:bg-brand-700 font-medium">Oui</button></div>
+         </div>
     </div>
 
     <script>
-        function openDonationModal() {
-            document.getElementById('donation-modal').classList.remove('hidden');
+        let sourceFiles = [], cropImageData = null, activeCropperMode = null, currentCropperFile = null, currentCropperPage = 0, pendingDuplicationResolve = null, libImportMode = 'merge', bookletBlob = null;
+        const { PDFDocument, rgb, degrees } = PDFLib;
+        const els = { timeline: document.getElementById('timeline'), dockDrop: document.getElementById('dock-drop-overlay'), stdSpace: document.getElementById('standard-workspace'), mixSpace: document.getElementById('mixer-workspace'), mntSpace: document.getElementById('montage-workspace'), previewFrame: document.getElementById('pdf-preview'), loader: document.getElementById('loading-indicator'), dlBtn: document.getElementById('final-download-btn'), cropperModal: document.getElementById('cropper-modal'), mntPaper: document.getElementById('montage-paper'), headerActions: document.getElementById('header-actions'), previewPlace: document.getElementById('preview-placeholder'), zoomSlider: document.getElementById('montage-zoom-slider') };
+        let selectedMixerPages = new Set(); 
+
+        function setupZoom(containerId, sliderId, cssVarName) {
+            const container = document.getElementById(containerId); const slider = document.getElementById(sliderId); if(!container || !slider) return;
+            const update = (val) => { document.documentElement.style.setProperty(cssVarName, val + 'px'); slider.value = val; };
+            slider.addEventListener('input', (e) => update(e.target.value));
+            container.addEventListener('wheel', (e) => { if (e.ctrlKey) { e.preventDefault(); const current = parseInt(slider.value) || 120; const delta = e.deltaY > 0 ? -10 : 10; update(Math.min(Math.max(current + delta, parseInt(slider.min)), parseInt(slider.max))); } }, { passive: false });
         }
 
-        function closeDonationModal() {
-            document.getElementById('donation-modal').classList.add('hidden');
+        function makeResizable(handle, target, type) {
+            if (!handle || !target) return;
+            handle.addEventListener('mousedown', (e) => {
+                e.preventDefault(); document.body.style.cursor = type === 'width' ? 'col-resize' : 'row-resize'; handle.classList.add('resizing');
+                const startX = e.clientX, startY = e.clientY, startWidth = target.offsetWidth, startHeight = target.offsetHeight;
+                const onMouseMove = (ev) => {
+                    if (type === 'width') { const newWidth = startWidth + (ev.clientX - startX); if (newWidth > 200 && newWidth < window.innerWidth * 0.5) target.style.width = newWidth + 'px'; } 
+                    else if (type === 'height') { const newHeight = startHeight + (startY - ev.clientY); if (newHeight > 100 && newHeight < window.innerHeight * 0.6) target.style.height = newHeight + 'px'; }
+                };
+                const onMouseUp = () => { document.body.style.cursor = ''; handle.classList.remove('resizing'); window.removeEventListener('mousemove', onMouseMove); window.removeEventListener('mouseup', onMouseUp); };
+                window.addEventListener('mousemove', onMouseMove); window.addEventListener('mouseup', onMouseUp);
+            });
         }
-        // --- UTILS ---
-        function showToast(m, t) { const d = document.createElement('div'); d.className = "bg-slate-800 text-white px-4 py-2 rounded shadow text-xs animate-bounce"; d.innerText = m; document.getElementById('toast-container').appendChild(d); setTimeout(() => d.remove(), 3000); }
-        function closeWorkspaces() { els.mixSpace.classList.add('hidden'); els.mntSpace.classList.add('hidden'); els.stdSpace.classList.remove('hidden'); els.previewFrame.classList.remove('hidden'); }
-        function toggleTextCleaner() { document.getElementById('text-cleaner-modal').classList.toggle('hidden'); }
-        function cleanText(a) { const i = document.getElementById('txt-input').value; document.getElementById('txt-output').value = a === 'uppercase' ? i.toUpperCase() : i.replace(/(\r\n|\n|\r)/gm, " "); }
 
-        // --- HELPER HELP MODAL ---
+        function initLassoSelection() {
+            const container = document.getElementById('mixer-source-container'); const lasso = document.getElementById('selection-lasso'); let isDrawing = false, startX, startY;
+            container.addEventListener('mousedown', (e) => {
+                if (e.target.closest('.mixer-thumb') || e.target.closest('button')) return;
+                isDrawing = true; const rect = container.getBoundingClientRect(); startX = e.clientX - rect.left + container.scrollLeft; startY = e.clientY - rect.top + container.scrollTop;
+                lasso.style.left = startX + 'px'; lasso.style.top = startY + 'px'; lasso.style.width = '0px'; lasso.style.height = '0px'; lasso.style.display = 'block';
+                if (!e.ctrlKey) { document.querySelectorAll('.mixer-thumb.selected-mixer-item').forEach(el => el.classList.remove('selected-mixer-item')); selectedMixerPages.clear(); updateSelectionButton(); }
+            });
+            container.addEventListener('mousemove', (e) => {
+                if (!isDrawing) return; const rect = container.getBoundingClientRect(); const currentX = e.clientX - rect.left + container.scrollLeft; const currentY = e.clientY - rect.top + container.scrollTop;
+                const width = Math.abs(currentX - startX), height = Math.abs(currentY - startY);
+                lasso.style.width = width + 'px'; lasso.style.height = height + 'px'; lasso.style.left = Math.min(currentX, startX) + 'px'; lasso.style.top = Math.min(currentY, startY) + 'px';
+                const items = container.querySelectorAll('.mixer-thumb'); const lassoRect = { left: Math.min(currentX, startX), top: Math.min(currentY, startY), right: Math.min(currentX, startX) + width, bottom: Math.min(currentY, startY) + height };
+                items.forEach(item => {
+                    const itemRect = { left: item.offsetLeft, top: item.offsetTop, right: item.offsetLeft + item.offsetWidth, bottom: item.offsetTop + item.offsetHeight };
+                    if (!(lassoRect.left > itemRect.right || lassoRect.right < itemRect.left || lassoRect.top > itemRect.bottom || lassoRect.bottom < itemRect.top)) {
+                        item.classList.add('selected-mixer-item'); selectedMixerPages.add(item.dataset.fileId + "_" + item.dataset.pageIndex);
+                    }
+                });
+                updateSelectionButton();
+            });
+            window.addEventListener('mouseup', () => { if (isDrawing) { isDrawing = false; lasso.style.display = 'none'; } });
+        }
+
+        // HELP
         function openGeneralHelp() { document.getElementById('main-help-modal').classList.remove('hidden'); }
+        function openPrintHelp() { document.getElementById('print-help-modal').classList.remove('hidden'); }
         function switchHelpTab(t) {
             document.querySelectorAll('.help-tab-content').forEach(e => e.classList.remove('active'));
             document.querySelectorAll('.help-tab-btn').forEach(e => e.classList.remove('active'));
             document.getElementById('hc-' + t).classList.add('active');
             document.getElementById('ht-' + t).classList.add('active');
         }
+
+        window.onload = async () => {
+            await dbHelper.init(); refreshLibUI();
+            setupZoom('dock-container', 'dock-zoom', '--dock-size'); setupZoom('mixer-source-container', 'mixer-src-zoom', '--mixer-src-size'); setupZoom('mixer-dest-list', 'mixer-dest-zoom', '--mixer-dest-size'); setupZoom('mt-content-src', 'montage-src-zoom', '--montage-src-size'); setupZoom('montage-lib-list', 'montage-src-zoom', '--montage-src-size');
+            makeResizable(document.getElementById('resizer-dock'), document.getElementById('dock-panel'), 'height'); makeResizable(document.getElementById('resizer-mixer'), document.getElementById('mixer-sidebar'), 'width'); makeResizable(document.getElementById('resizer-montage'), document.getElementById('montage-sidebar'), 'width');
+            initLassoSelection();
+        };
+
+        function showToast(m, t) { const d = document.createElement('div'); d.className = "bg-slate-800 text-white px-4 py-2 rounded shadow text-xs animate-bounce"; d.innerText = m; document.getElementById('toast-container').appendChild(d); setTimeout(() => d.remove(), 3000); }
+        function closeWorkspaces() { els.mixSpace.classList.add('hidden'); els.mntSpace.classList.add('hidden'); els.stdSpace.classList.remove('hidden'); els.previewFrame.classList.remove('hidden'); }
+        window.checkSelectionAndCrop = () => { const selected = sourceFiles.filter(f => f.selected); if (selected.length === 1) openCropperForPage(selected[0], 0, 'interro'); else if (selected.length > 1) { showToast("Trop de fichiers.", "warning"); openCropperForPage(selected[0], 0, 'interro'); } else if (sourceFiles.length > 0) openCropperForPage(sourceFiles[0], 0, 'interro'); else showToast("Aucun fichier", "error"); };
 
         const DB_NAME = "ProfToolboxDB", STORE = "library";
         const dbHelper = {
@@ -997,22 +517,6 @@
             async clear() { return new Promise((r, j) => { const tx = this.db.transaction(STORE, "readwrite"); tx.objectStore(STORE).clear(); tx.oncomplete = r; tx.onerror = j; }); }
         };
 
-        let sourceFiles = [], cropImageData = null, activeCropperMode = null, currentCropperFile = null, currentCropperPage = 0, pendingDuplicationResolve = null, libImportMode = 'merge', bookletBlob = null;
-        const { PDFDocument, rgb, degrees } = PDFLib;
-        const els = { timeline: document.getElementById('timeline'), dockDrop: document.getElementById('dock-drop-overlay'), stdSpace: document.getElementById('standard-workspace'), mixSpace: document.getElementById('mixer-workspace'), mntSpace: document.getElementById('montage-workspace'), previewFrame: document.getElementById('pdf-preview'), loader: document.getElementById('loading-indicator'), dlBtn: document.getElementById('final-download-btn'), cropperModal: document.getElementById('cropper-modal'), mntPaper: document.getElementById('montage-paper'), headerActions: document.getElementById('header-actions'), previewPlace: document.getElementById('preview-placeholder'), zoomSlider: document.getElementById('montage-zoom-slider'), filePreviewFrame: document.getElementById('file-preview-frame') };
-
-        window.onload = async () => { await dbHelper.init(); refreshLibUI(); };
-
-        // --- GLOBAL ACTIONS ---
-        window.checkSelectionAndCrop = () => {
-            const selected = sourceFiles.filter(f => f.selected);
-            if (selected.length === 1) openCropperForPage(selected[0], 0, 'interro');
-            else if (selected.length > 1) { showToast("Trop de fichiers. Ouverture du premier.", "warning"); openCropperForPage(selected[0], 0, 'interro'); }
-            else if (sourceFiles.length > 0) { showToast("Ouverture du premier fichier.", "info"); openCropperForPage(sourceFiles[0], 0, 'interro'); }
-            else showToast("Aucun fichier", "error");
-        };
-
-        // --- DOCK LOGIC ---
         new Sortable(els.timeline, { animation: 150, onEnd: (e) => { const x = sourceFiles.splice(e.oldIndex, 1)[0]; sourceFiles.splice(e.newIndex, 0, x); } });
         document.getElementById('dock-panel').addEventListener('dragover', (e) => { e.preventDefault(); els.dockDrop.classList.remove('hidden'); els.dockDrop.style.pointerEvents = 'auto'; });
         els.dockDrop.addEventListener('dragleave', () => { els.dockDrop.classList.add('hidden'); els.dockDrop.style.pointerEvents = 'none'; });
@@ -1020,49 +524,159 @@
         document.getElementById('btn-add-file').onclick = () => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'application/pdf,image/jpeg,image/png'; input.multiple = true; input.onchange = (e) => handleFiles(e.target.files); input.click(); };
 
         async function handleFiles(files) {
-            const validFiles = Array.from(files).filter(f => f.type === 'application/pdf' || f.type.startsWith('image/'));
-            if (validFiles.length) showToast(`${validFiles.length} fichier(s) ajouté(s)`);
-            for (const f of validFiles) { if (f.type === 'application/pdf') await processPdfAdd(f); else await processImageAdd(f); }
-            updateFileCount();
+            const validFiles = Array.from(files).filter(f => f.type === 'application/pdf' || f.type.startsWith('image/')); if (validFiles.length) showToast(`${validFiles.length} fichier(s) ajouté(s)`);
+            for (const f of validFiles) { if (f.type === 'application/pdf') await processPdfAdd(f); else await processImageAdd(f); } updateFileCount();
         }
         async function processPdfAdd(file) {
-            const id = Date.now() + Math.random().toString(36).substr(2, 5); const ab = await file.arrayBuffer();
-            const doc = await pdfjsLib.getDocument({ data: new Uint8Array(ab.slice(0)) }).promise;
+            const id = Date.now() + Math.random().toString(36).substr(2, 5); const ab = await file.arrayBuffer(); const doc = await pdfjsLib.getDocument({ data: new Uint8Array(ab.slice(0)) }).promise;
             const p = await doc.getPage(1); const vp = p.getViewport({ scale: 150 / p.getViewport({ scale: 1 }).width });
             const cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height; await p.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
-            createFileCard(id, file.name, 'pdf', doc.numPages, cv.toDataURL());
-            sourceFiles.push({ id, file, type: 'pdf', name: file.name, arrayBuffer: ab, pageCount: doc.numPages, selected: false });
+            createFileCard(id, file.name, 'pdf', doc.numPages, cv.toDataURL()); sourceFiles.push({ id, file, type: 'pdf', name: file.name, arrayBuffer: ab, pageCount: doc.numPages, selected: false });
         }
         async function processImageAdd(file) {
             const id = Date.now() + Math.random().toString(36).substr(2, 5); const reader = new FileReader();
-            reader.onload = (e) => {
-                const dataUrl = e.target.result; createFileCard(id, file.name, 'image', 1, dataUrl);
-                file.arrayBuffer().then(ab => { sourceFiles.push({ id, file, type: 'image', mime: file.type, name: file.name, arrayBuffer: ab, dataUrl: dataUrl, pageCount: 1, selected: false }); });
-            }; reader.readAsDataURL(file);
+            reader.onload = (e) => { const dataUrl = e.target.result; createFileCard(id, file.name, 'image', 1, dataUrl); file.arrayBuffer().then(ab => { sourceFiles.push({ id, file, type: 'image', mime: file.type, name: file.name, arrayBuffer: ab, dataUrl: dataUrl, pageCount: 1, selected: false }); }); }; reader.readAsDataURL(file);
         }
-        function createFileCard(id, name, type, count, thumbUrl) {
-            document.getElementById('empty-state').classList.add('hidden');
-            const card = document.createElement('div'); card.id = `card-${id}`;
-            card.className = "pdf-card group relative cursor-pointer bg-white p-2 rounded-lg shadow-sm flex flex-col gap-2";
-            card.onclick = (e) => toggleFileSelection(id);
+        
+        // MODIF SELECTION DOCK (Additive par défaut)
+     function createFileCard(id, name, type, count, thumbUrl) {
+            document.getElementById('empty-state').classList.add('hidden'); 
+            const card = document.createElement('div'); 
+            card.id = `card-${id}`; 
+            card.className = "pdf-card group relative cursor-pointer bg-white p-2 rounded-lg shadow-sm flex flex-col gap-2"; 
+            
+            card.onclick = (e) => {
+                toggleFileSelection(id);
+            };
+
             const badge = type === 'pdf' ? `<span class="type-badge" style="background:#ef4444">PDF</span>` : `<span class="type-badge" style="background:#10b981">IMG</span>`;
-            card.innerHTML = `<div class="h-24 bg-slate-100 rounded overflow-hidden flex items-center justify-center relative border border-slate-100"><img src="${thumbUrl}" class="w-full h-full object-contain pointer-events-none">${badge}<div class="absolute inset-0 bg-black/60 hidden group-hover:grid grid-cols-3 gap-1 p-2 place-items-center backdrop-blur-[1px] transition" onclick="event.stopPropagation()"><button onclick="viewInputFile('${id}')" class="card-btn text-slate-700 hover:text-brand-600" title="Voir"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></button><button onclick="downloadSingleFile('${id}')" class="card-btn text-slate-700 hover:text-green-600" title="Télécharger"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></button><button onclick="removeFile('${id}', this)" class="card-btn text-slate-700 hover:text-red-500" title="Supprimer"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button><button onclick="openCropperForFile('${id}', 'interro')" class="col-span-1 card-btn text-slate-700 hover:text-orange-500" title="Mode Interro">✂️</button><button onclick="openCropperForFile('${id}', 'montage')" class="col-span-2 w-full bg-white px-2 py-1 rounded-full text-slate-700 hover:text-pink-500 shadow-sm flex items-center justify-center gap-1 text-[9px] font-bold" title="Enregistrer en bibliothèque">📚 Biblio</button></div></div><div class="px-1"><div class="text-[10px] font-bold text-slate-700 truncate w-full">${name}</div><div class="text-[9px] text-slate-400 text-center">${count} ${type === 'pdf' ? 'pages' : 'image'}</div></div>`;
+            
+            // J'ai ajouté le bouton ROTATE ici (3ème bouton de la grille)
+            card.innerHTML = `
+            <div class="bg-slate-100 rounded overflow-hidden flex items-center justify-center relative border border-slate-100 h-24">
+                <img id="thumb-${id}" src="${thumbUrl}" class="w-full h-full object-contain pointer-events-none">
+                ${badge}
+                <div class="absolute inset-0 bg-black/60 hidden group-hover:grid grid-cols-4 gap-1 p-2 place-items-center backdrop-blur-[1px] transition" onclick="event.stopPropagation()">
+                    
+                    <button onclick="viewInputFile('${id}')" class="card-btn text-slate-700 hover:text-brand-600" title="Voir">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    </button>
+                    
+                    <button onclick="downloadSingleFile('${id}')" class="card-btn text-slate-700 hover:text-green-600" title="Télécharger">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    </button>
+
+                    <button onclick="rotateFile('${id}', this)" class="card-btn text-slate-700 hover:text-blue-500" title="Pivoter 90°">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    </button>
+
+                    <button onclick="removeFile('${id}', this)" class="card-btn text-slate-700 hover:text-red-500" title="Supprimer">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+
+                    <button onclick="openCropperForFile('${id}', 'interro')" class="col-span-2 w-full card-btn text-slate-700 hover:text-orange-500 text-[9px] font-bold" title="Mode Interro">Découpe</button>
+                    <button onclick="openCropperForFile('${id}', 'montage')" class="col-span-2 w-full bg-white px-1 py-1 rounded-full text-slate-700 hover:text-pink-500 shadow-sm flex items-center justify-center gap-1 text-[9px] font-bold" title="Enregistrer en bibliothèque">📚 Biblio</button>
+                </div>
+            </div>
+            <div class="px-1">
+                <div class="text-[10px] font-bold text-slate-700 truncate w-full">${name}</div>
+                <div class="text-[9px] text-slate-400 text-center">${count} ${type === 'pdf' ? 'pages' : 'image'}</div>
+            </div>`;
             els.timeline.appendChild(card);
         }
-        function toggleFileSelection(id) { const f = sourceFiles.find(x => x.id === id); if (!f) return; f.selected = !f.selected; const el = document.getElementById(`card-${id}`); f.selected ? el.classList.add('selected-file') : el.classList.remove('selected-file'); }
+        function toggleFileSelection(id) { 
+            const f = sourceFiles.find(x => x.id === id); if (!f) return; 
+            // PURE TOGGLE (ADDITIVE)
+            f.selected = !f.selected; 
+            const el = document.getElementById(`card-${id}`); 
+            f.selected ? el.classList.add('selected-file') : el.classList.remove('selected-file'); 
+        }
+
         function updateFileCount() { document.getElementById('file-count-badge').innerText = sourceFiles.length; document.getElementById('file-count-badge').classList.remove('hidden'); }
         window.removeFile = (id, el) => { event.stopPropagation(); el.closest('.pdf-card').remove(); sourceFiles = sourceFiles.filter(f => f.id !== id); updateFileCount(); };
         window.viewInputFile = (id) => { const f = sourceFiles.find(x => x.id === id); if (!f) return; const container = document.getElementById('preview-container'); container.innerHTML = ''; if (f.type === 'pdf') { const ifr = document.createElement('iframe'); ifr.className = "w-full h-full"; ifr.src = URL.createObjectURL(new Blob([f.arrayBuffer], { type: 'application/pdf' })); container.appendChild(ifr); } else { const img = document.createElement('img'); img.className = "max-w-full max-h-full object-contain"; img.src = f.dataUrl; container.appendChild(img); } document.getElementById('preview-filename').innerText = f.name; document.getElementById('file-preview-modal').classList.remove('hidden'); };
         window.closeFilePreview = () => { document.getElementById('file-preview-modal').classList.add('hidden'); };
         window.downloadSingleFile = (id) => { const f = sourceFiles.find(x => x.id === id); if (f) { const u = URL.createObjectURL(new Blob([f.arrayBuffer], { type: f.file.type })); const a = document.createElement('a'); a.href = u; a.download = f.name; a.click(); } };
+window.rotateFile = async (id, btn) => {
+            event.stopPropagation(); // Empêche la sélection de la carte
+            const fileObj = sourceFiles.find(f => f.id === id);
+            if (!fileObj) return;
 
-        // --- CROPPER ---
+            // Petit effet visuel sur le bouton
+            const icon = btn.querySelector('svg');
+            icon.classList.add('animate-spin');
+
+            try {
+                if (fileObj.type === 'pdf') {
+                    // 1. Charger le PDF
+                    const pdfDoc = await PDFLib.PDFDocument.load(fileObj.arrayBuffer);
+                    const pages = pdfDoc.getPages();
+                    
+                    // 2. Appliquer la rotation (+90 degrés) à toutes les pages
+                    pages.forEach(page => {
+                        const currentRotation = page.getRotation().angle;
+                        page.setRotation(PDFLib.degrees(currentRotation + 90));
+                    });
+
+                    // 3. Sauvegarder le nouveau buffer
+                    const newBytes = await pdfDoc.save();
+                    fileObj.arrayBuffer = newBytes.buffer; // Mise à jour de la source
+
+                    // 4. Mettre à jour la vignette (Thumbnail)
+                    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(newBytes) });
+                    const doc = await loadingTask.promise;
+                    const page = await doc.getPage(1);
+                    
+                    // Calcul pour que la vignette reste jolie
+                    const vp = page.getViewport({ scale: 150 / page.getViewport({ scale: 1 }).width });
+                    const cv = document.createElement('canvas');
+                    cv.width = vp.width;
+                    cv.height = vp.height;
+                    await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+                    
+                    // Remplacement de l'image
+                    document.getElementById(`thumb-${id}`).src = cv.toDataURL();
+
+                } else {
+                    // C'est une IMAGE
+                    const img = new Image();
+                    img.src = fileObj.dataUrl;
+                    await new Promise(r => img.onload = r);
+
+                    const cv = document.createElement('canvas');
+                    // On inverse hauteur et largeur car on tourne de 90°
+                    cv.width = img.height;
+                    cv.height = img.width;
+                    const ctx = cv.getContext('2d');
+                    
+                    // Rotation du contexte
+                    ctx.translate(cv.width / 2, cv.height / 2);
+                    ctx.rotate(90 * Math.PI / 180);
+                    ctx.drawImage(img, -img.width / 2, -img.height / 2);
+
+                    const newDataUrl = cv.toDataURL();
+                    fileObj.dataUrl = newDataUrl;
+                    
+                    // Si on a l'ArrayBuffer (pour le PDFLib plus tard), il faudrait idéalement le mettre à jour
+                    // Mais pour Prof Toolbox, on utilise souvent le dataUrl pour les images dans le mixage
+                    // Mise à jour visuelle
+                    document.getElementById(`thumb-${id}`).src = newDataUrl;
+                }
+                
+                showToast("Fichier pivoté !");
+
+            } catch (e) {
+                console.error(e);
+                showToast("Erreur lors de la rotation", "error");
+            } finally {
+                icon.classList.remove('animate-spin');
+            }
+        };
         window.openCropperForFile = (id, mode) => { const f = sourceFiles.find(x => x.id === id); if (f) openCropperForPage(f, 0, mode); };
         async function openCropperForPage(file, pageIndex, mode) {
             currentCropperFile = file; currentCropperPage = pageIndex; activeCropperMode = mode;
             els.cropperModal.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
-            document.getElementById('btn-crop-lib').classList.toggle('hidden', mode !== 'montage');
-            document.getElementById('btn-crop-gen').classList.toggle('hidden', mode !== 'interro');
+            document.getElementById('btn-crop-lib').classList.toggle('hidden', mode !== 'montage'); document.getElementById('btn-crop-gen').classList.toggle('hidden', mode !== 'interro');
             document.getElementById('cropper-pagination').style.display = (file.type === 'pdf' && activeCropperMode !== 'update-item') ? 'flex' : 'none';
             await renderCropperCanvas();
         }
@@ -1096,12 +710,8 @@
                 if (currentCropperFile.type === 'pdf') {
                     const d = await pdfjsLib.getDocument({ data: new Uint8Array(currentCropperFile.arrayBuffer.slice(0)) }).promise; const p = await d.getPage(currentCropperPage + 1);
                     const vp2 = p.getViewport({ scale: 2.5 }); c2.width = vp2.width; c2.height = vp2.height; await p.render({ canvasContext: ctx2, viewport: vp2 }).promise;
-                } else {
-                    const img = new Image(); img.src = currentCropperFile.dataUrl; await new Promise(r => img.onload = r); c2.width = img.width; c2.height = img.height; ctx2.drawImage(img, 0, 0);
-                }
-                const c3 = document.createElement('canvas'); c3.width = rw * c2.width; c3.height = rh * c2.height;
-                c3.getContext('2d').drawImage(c2, rx * c2.width, ry * c2.height, c3.width, c3.height, 0, 0, c3.width, c3.height);
-                return { dataUrl: c3.toDataURL('image/png'), width: c3.width, height: c3.height };
+                } else { const img = new Image(); img.src = currentCropperFile.dataUrl; await new Promise(r => img.onload = r); c2.width = img.width; c2.height = img.height; ctx2.drawImage(img, 0, 0); }
+                const c3 = document.createElement('canvas'); c3.width = rw * c2.width; c3.height = rh * c2.height; c3.getContext('2d').drawImage(c2, rx * c2.width, ry * c2.height, c3.width, c3.height, 0, 0, c3.width, c3.height); return { dataUrl: c3.toDataURL('image/png'), width: c3.width, height: c3.height };
             };
         }
         function closeCropperModal() { els.cropperModal.classList.add('hidden'); document.getElementById('btn-crop-gen').innerHTML = "<span>✂️</span> Créer"; }
@@ -1110,34 +720,20 @@
             const croppedData = await window.getCurrentCrop();
             if (!croppedData) return showToast("Sélectionnez une zone");
             if (activeCropperMode === 'update-item' && editingItemImg) {
-                editingItemImg.src = croppedData.dataUrl;
-                const newRatio = croppedData.height / croppedData.width;
-                editingItemImg.parentElement.style.height = (editingItemImg.parentElement.offsetWidth * newRatio) + 'px';
-                closeCropperModal();
-                showToast("Image mise à jour !");
-            } else {
-                cropImageData = croppedData;
-                closeCropperModal();
-                processPDF('interro');
-            }
+                editingItemImg.src = croppedData.dataUrl; const newRatio = croppedData.height / croppedData.width; editingItemImg.parentElement.style.height = (editingItemImg.parentElement.offsetWidth * newRatio) + 'px'; closeCropperModal(); showToast("Image mise à jour !");
+            } else { cropImageData = croppedData; closeCropperModal(); processPDF('interro'); }
         }
 
-        // --- PROCESSING ---
         function resolveDuplication(c) { document.getElementById('duplication-modal').classList.add('hidden'); if (pendingDuplicationResolve) { pendingDuplicationResolve(c); pendingDuplicationResolve = null; } }
         async function askUserForDuplication(m) { return new Promise((r) => { pendingDuplicationResolve = r; document.getElementById('dup-desc').textContent = m === 'booklet' ? "Remplir les 4 faces ?" : "Dupliquer sur gauche et droite ?"; document.getElementById('duplication-modal').classList.remove('hidden'); }); }
-
+        
         async function processPDF(mode) {
             if (!sourceFiles.length && mode !== 'booklet') return showToast("Aucun fichier", "error");
             const selected = sourceFiles.filter(f => f.selected); const targetFiles = selected.length > 0 ? selected : sourceFiles;
-
-            // Check Dup
-            const allPdf = targetFiles.every(f => f.type === 'pdf');
-            let total = targetFiles.reduce((acc, f) => acc + f.pageCount, 0);
+            const allPdf = targetFiles.every(f => f.type === 'pdf'); let total = targetFiles.reduce((acc, f) => acc + f.pageCount, 0);
             let shouldDup = false; if (allPdf && total === 1 && (mode === 'eco' || mode === 'booklet')) shouldDup = await askUserForDuplication(mode);
-
             closeWorkspaces(); els.loader.classList.remove('hidden'); els.headerActions.classList.add('hidden');
             try {
-                // 1. Flatten Images to PDF Pages
                 const mDoc = await PDFDocument.create();
                 for (const f of targetFiles) {
                     if (f.type === 'pdf') { const s = await PDFDocument.load(f.arrayBuffer); (await mDoc.copyPages(s, s.getPageIndices())).forEach(p => mDoc.addPage(p)); }
@@ -1145,242 +741,342 @@
                 }
                 if (shouldDup) { const [p] = await mDoc.copyPages(mDoc, [0]); if (mode === 'eco') mDoc.addPage(p); else { mDoc.addPage(p); mDoc.addPage(p); mDoc.addPage(p); } }
                 const flatBytes = await mDoc.save();
-
-                // 2. Layout
                 let name = "Fusion";
                 if (mode === 'interro') {
-                    if (!cropImageData) throw new Error("No crop"); const fDoc = await PDFDocument.create(); const img = await fDoc.embedPng(cropImageData.dataUrl); const oh = cropImageData.height / 4, ow = cropImageData.width / 4; const p = fDoc.addPage([595.28, 841.89]); const cps = Math.floor(841.89 / (oh + 15)); const ty = (841.89 - ((cps * oh) + ((cps - 1) * 15))) / 2 + (cps * oh) + ((cps - 1) * 15); for (let k = 0; k < cps; k++) { const y = ty - (k * (oh + 15)) - oh; p.drawImage(img, { x: (595.28 - ow) / 2, y: y, width: ow, height: oh }); if (k < cps - 1) p.drawLine({ start: { x: 0, y: y - 7.5 }, end: { x: 595.28, y: y - 7.5 }, thickness: 1, color: rgb(0.5, 0.5, 0.5), dashArray: [5, 5] }); }
-                    await finishPDF(await fDoc.save(), "Interro.pdf");
-                } else if (mode === 'merge') {
-                    await finishPDF(flatBytes, "Fusion.pdf");
-                } else {
-                    const sourceDoc = await PDFDocument.load(flatBytes); const fDoc = await PDFDocument.create(); const pc = sourceDoc.getPageCount();
-                    if (mode === 'eco') { for (let i = 0; i < pc; i += 2) { const s = fDoc.addPage([841.89, 595.28]); embedDraw(s, await fDoc.embedPage(sourceDoc.getPage(i)), 'left'); if (i + 1 < pc) embedDraw(s, await fDoc.embedPage(sourceDoc.getPage(i + 1)), 'right'); } name = "Eco"; await finishPDF(await fDoc.save(), name + ".pdf"); }
-                    else if (mode === 'booklet') {
-                        // OPEN PREVIEW INSTEAD OF SAVING DIRECTLY
-                        openBookletPreview(new Blob([flatBytes], { type: 'application/pdf' }));
+                    if (!cropImageData) throw new Error("No crop"); const fDoc = await PDFDocument.create(); const img = await fDoc.embedPng(cropImageData.dataUrl); 
+                    const maxSlotH = (841.89 / 4) - 20; const maxSlotW = 595.28 - 40; const dims = img.scaleToFit(maxSlotW, maxSlotH);
+                    const p = fDoc.addPage([595.28, 841.89]); 
+                    const startY = 841.89 - 20; const slotHeight = 841.89 / 4;
+                    for (let k = 0; k < 4; k++) { 
+                        const slotTop = startY - (k * slotHeight); const y = slotTop - (slotHeight - dims.height) / 2 - dims.height;
+                        p.drawImage(img, { x: (595.28 - dims.width) / 2, y: y, width: dims.width, height: dims.height }); 
+                        if (k < 3) p.drawLine({ start: { x: 0, y: (841.89 - ((k + 1) * slotHeight)) }, end: { x: 595.28, y: (841.89 - ((k + 1) * slotHeight)) }, thickness: 1, color: rgb(0.5, 0.5, 0.5), dashArray: [5, 5] }); 
                     }
+                    await finishPDF(await fDoc.save(), "Interro.pdf");
+                } else if (mode === 'merge') { await finishPDF(flatBytes, "Fusion.pdf"); } 
+                else {
+                    const sourceDoc = await PDFDocument.load(flatBytes); const fDoc = await PDFDocument.create(); const pc = sourceDoc.getPageCount();
+                    if (mode === 'eco') { 
+                        for (let i = 0; i < pc; i += 2) { 
+                            const s = fDoc.addPage([841.89, 595.28]); 
+                            await embedSmartA5(s, await fDoc.embedPage(sourceDoc.getPage(i)), 'left');
+                            if (i + 1 < pc) await embedSmartA5(s, await fDoc.embedPage(sourceDoc.getPage(i+1)), 'right');
+                        } 
+                        name = "Eco"; await finishPDF(await fDoc.save(), name + ".pdf"); 
+                    }
+                    else if (mode === 'booklet') { openBookletPreview(new Blob([flatBytes], { type: 'application/pdf' })); }
                 }
             } catch (e) { console.error(e); els.loader.classList.add('hidden'); showToast("Erreur traitement", 'error'); }
         }
-        function embedDraw(s, e, pos) { const d = e.scale(1); let w = d.width, h = d.height; const isL = w > h; if (isL) { const t = w; w = h; h = t; } const sc = Math.min((420.9 - 20) / w, (595.28 - 20) / h); const fw = w * sc, fh = h * sc, x = (420.9 - fw) / 2, y = (595.28 - fh) / 2; if (isL) s.drawPage(e, { x: (pos === 'right' ? 420.9 : 0) + x + fw, y: y, xScale: sc, yScale: sc, rotate: degrees(90) }); else s.drawPage(e, { x: (pos === 'right' ? 420.9 : 0) + x, y: y, xScale: sc, yScale: sc }); }
+
+        async function embedSmartA5(targetPage, embeddedPage, position) {
+            // FIX V7: Padding de sécurité (20px) pour éviter la coupe à l'impression
+            // Et logique de containment stricte
+            const slotW = 420.945; const slotH = 595.28; 
+            const margin = 20; 
+            const safeW = slotW - (margin * 2); 
+            const safeH = slotH - (margin * 2);
+
+            const { width, height } = embeddedPage.scale(1);
+            let isLandscape = width > height;
+
+            if (isLandscape) {
+                // Rotation 90
+                const scale = Math.min(safeW / height, safeH / width);
+                const finalW = width * scale; const finalH = height * scale;
+                const slotOffsetX = position === 'right' ? slotW : 0;
+                
+                // Centre du slot
+                const cx = slotOffsetX + (slotW / 2); 
+                const cy = (slotH / 2);
+                
+                // Placement centré avec rotation 90
+                targetPage.drawPage(embeddedPage, {
+                    x: cx + (finalH / 2),
+                    y: cy - (finalW / 2),
+                    width: finalW, height: finalH,
+                    rotate: degrees(90)
+                });
+            } else {
+                // Normal
+                const scale = Math.min(safeW / width, safeH / height);
+                const finalW = width * scale; const finalH = height * scale;
+                const slotOffsetX = position === 'right' ? slotW : 0;
+                const drawX = slotOffsetX + (slotW - finalW) / 2; 
+                const drawY = (slotH - finalH) / 2;
+                targetPage.drawPage(embeddedPage, { x: drawX, y: drawY, width: finalW, height: finalH });
+            }
+        }
+
         async function finishPDF(bytes, filename) { const blob = new Blob([bytes], { type: 'application/pdf' }); const url = URL.createObjectURL(blob); els.previewFrame.src = url; els.dlBtn.href = url; els.dlBtn.download = filename; els.loader.classList.add('hidden'); els.previewFrame.classList.remove('hidden'); els.headerActions.classList.remove('hidden'); els.previewPlace.classList.add('hidden'); const newFile = new File([blob], filename, { type: "application/pdf" }); await handleFiles([newFile]); showToast("Résultat ajouté aux sources !"); setTimeout(() => els.timeline.parentElement.scrollLeft = els.timeline.parentElement.scrollWidth, 100); }
 
-        // --- BOOKLET PREVIEW & GENERATION ---
         async function previewBookletLinear() {
             if (!sourceFiles.length) return showToast("Aucun fichier pour l'aperçu", "error");
             const selected = sourceFiles.filter(f => f.selected); const targetFiles = selected.length > 0 ? selected : sourceFiles;
             els.loader.classList.remove('hidden');
             try {
                 const mDoc = await PDFDocument.create();
-                for (const f of targetFiles) {
-                    if (f.type === 'pdf') { const s = await PDFDocument.load(f.arrayBuffer); (await mDoc.copyPages(s, s.getPageIndices())).forEach(p => mDoc.addPage(p)); }
-                    else { const img = f.mime === 'image/jpeg' ? await mDoc.embedJpg(f.arrayBuffer) : await mDoc.embedPng(f.arrayBuffer); const page = mDoc.addPage([595.28, 841.89]); const dims = img.scaleToFit(555.28, 801.89); page.drawImage(img, { x: (595.28 - dims.width) / 2, y: (841.89 - dims.height) / 2, width: dims.width, height: dims.height }); }
-                }
-                const bytes = await mDoc.save();
-                openBookletPreview(new Blob([bytes], { type: 'application/pdf' }));
+                for (const f of targetFiles) { if (f.type === 'pdf') { const s = await PDFDocument.load(f.arrayBuffer); (await mDoc.copyPages(s, s.getPageIndices())).forEach(p => mDoc.addPage(p)); } else { const img = f.mime === 'image/jpeg' ? await mDoc.embedJpg(f.arrayBuffer) : await mDoc.embedPng(f.arrayBuffer); const page = mDoc.addPage([595.28, 841.89]); const dims = img.scaleToFit(555.28, 801.89); page.drawImage(img, { x: (595.28 - dims.width) / 2, y: (841.89 - dims.height) / 2, width: dims.width, height: dims.height }); } }
+                const bytes = await mDoc.save(); openBookletPreview(new Blob([bytes], { type: 'application/pdf' }));
             } catch (e) { console.error(e); showToast("Erreur aperçu"); }
         }
-
         let bookletFlip = null;
-        let bookletSourceBlob = null; // Store source for final generation
+        
+  function handleBookletKeys(e) {
+            if (!bookletFlip || e.repeat) return; // e.repeat empêche le défilement rapide si on reste appuyé
+            if (e.key === "ArrowRight") bookletFlip.flipNext();
+            if (e.key === "ArrowLeft") bookletFlip.flipPrev();
+            if (e.key === "Escape") closeBookletPreview();
+        }
 
         async function openBookletPreview(blob) {
-            bookletSourceBlob = blob;
-
-            // Récupération de l'élément de texte du loader pour afficher la progression
-            const loaderText = els.loader.querySelector('span');
-            const originalText = loaderText.innerText; // On garde "Traitement..." pour plus tard
+            bookletBlob = blob;
             els.loader.classList.remove('hidden');
-
+            
             const wrapper = document.getElementById('booklet-flip-wrapper');
-
-            // CLEANUP & REBUILD
             if (bookletFlip) { bookletFlip.destroy(); bookletFlip = null; }
 
-            wrapper.innerHTML = '<div id="booklet-flip-container" class="relative shadow-2xl"></div><button class="flip-arrow flip-prev" onclick="if(bookletFlip) bookletFlip.flipPrev()">❮</button><button class="flip-arrow flip-next" onclick="if(bookletFlip) bookletFlip.flipNext()">❯</button>';
+            // CORRECTION 2 : Taille fixe explicite en CSS (2 x 400px = 800px de large)
+            // Cela empêche le conteneur de "sauter" au chargement
+            wrapper.innerHTML = `
+                <div class="flex items-center justify-center w-full h-full bg-slate-200"> 
+                    <div id="booklet-flip-container" style="width: 800px; height: 566px;" class="relative shadow-2xl opacity-0 transition-opacity duration-500"></div>
+                </div>
+                <button class="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 p-2 rounded-full shadow hover:bg-white z-50 text-indigo-600 font-bold" onclick="if(bookletFlip) bookletFlip.flipPrev()">❮</button>
+                <button class="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 p-2 rounded-full shadow hover:bg-white z-50 text-indigo-600 font-bold" onclick="if(bookletFlip) bookletFlip.flipNext()">❯</button>
+            `;
+            
             const container = document.getElementById('booklet-flip-container');
-
             document.getElementById('booklet-preview-modal').classList.remove('hidden');
+            window.addEventListener('keydown', handleBookletKeys);
 
             try {
                 const doc = await pdfjsLib.getDocument(URL.createObjectURL(blob)).promise;
-
-                // --- MODIFICATION ICI : Boucle avec mise à jour du texte ---
+                
                 for (let i = 1; i <= doc.numPages; i++) {
-                    // Mise à jour visuelle du texte de chargement
-                    loaderText.innerText = `Préparation du livret : Page ${i} / ${doc.numPages}`;
-
                     const page = await doc.getPage(i);
-                    const vp = page.getViewport({ scale: 0.5 }); // Scale 0.5 est un bon compromis qualité/perf pour l'écran
+                    const vp = page.getViewport({ scale: 1.0 }); 
                     const cv = document.createElement('canvas');
                     cv.width = vp.width; cv.height = vp.height;
-
                     await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
-
+                    
                     const div = document.createElement('div');
-                    div.className = "flip-page";
+                    // CORRECTION 3 : Dimensions fixes sur les pages aussi
+                    div.className = "bg-white border-r border-l border-slate-200 overflow-hidden";
+                    div.style.width = "400px";
+                    div.style.height = "566px";
+                    
                     const img = document.createElement('img');
                     img.src = cv.toDataURL();
+                    // Force l'image à remplir exactement le div sans dépasser
+                    img.className = "w-full h-full object-contain pointer-events-none"; 
+                    
                     div.appendChild(img);
                     container.appendChild(div);
                 }
 
-                // Initialisation du Flipbook une fois tout chargé
-                bookletFlip = new St.PageFlip(container, { width: 400, height: 560, showCover: true });
-                bookletFlip.loadFromHTML(document.querySelectorAll('.flip-page'));
+                bookletFlip = new St.PageFlip(container, { 
+                    width: 400, 
+                    height: 566,
+                    size: 'fixed',        // On garde fixed
+                    showCover: true,      // Page 1 seule au début
+                    usePortrait: false,   // Force le mode livre ouvert
+                    autoSize: false,      // <--- CORRECTION MAJEURE : On désactive le calcul auto qui fait bugger l'anim
+                    flippingTime: 1000,   // <--- CORRECTION : Animation plus lente (1 seconde) pour bien voir le mouvement
+                    maxShadowOpacity: 0.5,
+                    mobileScrollSupport: false
+                });
+                
+                bookletFlip.loadFromHTML(document.querySelectorAll('#booklet-flip-container > div'));
+                
+                setTimeout(() => { container.classList.remove('opacity-0'); }, 100);
 
             } catch (e) {
                 console.error(e);
-                showToast("Erreur lors de la génération du livret", "error");
+                showToast("Erreur génération livret", "error");
             } finally {
-                // On cache le loader et on remet le texte d'origine
                 els.loader.classList.add('hidden');
-                loaderText.innerText = originalText;
             }
         }
+        function closeBookletPreview() { document.getElementById('booklet-preview-modal').classList.add('hidden'); }
         async function downloadGeneratedBooklet() {
-            if (!bookletSourceBlob) return;
-            els.loader.classList.remove('hidden');
-            closeBookletPreview(); // Close modal
-
-            try {
-                const sourceDoc = await PDFDocument.load(await bookletSourceBlob.arrayBuffer());
-                const fDoc = await PDFDocument.create();
-                const pc = sourceDoc.getPageCount();
-                const ac = pc, tc = Math.ceil(ac / 4) * 4, ts = tc / 4;
-                for (let s = 0; s < ts; s++) {
-                    const sr = fDoc.addPage([841.89, 595.28]), rl = tc - 1 - (2 * s), rr = 2 * s;
-                    if (rl < ac) embedDraw(sr, await fDoc.embedPage(sourceDoc.getPage(rl)), 'left');
-                    if (rr < ac) embedDraw(sr, await fDoc.embedPage(sourceDoc.getPage(rr)), 'right');
-                    const sv = fDoc.addPage([841.89, 595.28]), vl = (2 * s) + 1, vr = tc - 1 - (2 * s) - 1;
-                    if (vl < ac) embedDraw(sv, await fDoc.embedPage(sourceDoc.getPage(vl)), 'left');
-                    if (vr < ac) embedDraw(sv, await fDoc.embedPage(sourceDoc.getPage(vr)), 'right');
-                }
-                await finishPDF(await fDoc.save(), "Livret_Imposition.pdf");
-            } catch (e) { console.error(e); showToast("Erreur génération livret"); }
+             if (!bookletBlob) return; els.loader.classList.remove('hidden'); closeBookletPreview();
+             try {
+                 const sourceDoc = await PDFDocument.load(await bookletBlob.arrayBuffer()); const fDoc = await PDFDocument.create(); const pc = sourceDoc.getPageCount(); const ac = pc, tc = Math.ceil(ac / 4) * 4, ts = tc / 4;
+                 for (let s = 0; s < ts; s++) { const sr = fDoc.addPage([841.89, 595.28]), rl = tc - 1 - (2 * s), rr = 2 * s; if (rl < ac) embedDraw(sr, await fDoc.embedPage(sourceDoc.getPage(rl)), 'left'); if (rr < ac) embedDraw(sr, await fDoc.embedPage(sourceDoc.getPage(rr)), 'right'); const sv = fDoc.addPage([841.89, 595.28]), vl = (2 * s) + 1, vr = tc - 1 - (2 * s) - 1; if (vl < ac) embedDraw(sv, await fDoc.embedPage(sourceDoc.getPage(vl)), 'left'); if (vr < ac) embedDraw(sv, await fDoc.embedPage(sourceDoc.getPage(vr)), 'right'); }
+                 await finishPDF(await fDoc.save(), "Livret_Imposition.pdf");
+             } catch (e) { console.error(e); showToast("Erreur génération livret"); }
         }
 
-        function closeBookletPreview() { document.getElementById('booklet-preview-modal').classList.add('hidden'); }
-
-        // --- TOOLS ---
-        function addWhiteRect() { addItemToPaper('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAXNSR0IArs4c6QAAAA1JREFUGFdj+P///38ACfsD/QVDRcoAAAAASUVORK5CYII=', 100, 50, 50, 50, true); }
-
-        // --- MIXER ---
         window.openGlobalMixer = function () { if (!sourceFiles.length) return showToast("Aucun fichier"); els.stdSpace.classList.add('hidden'); els.mntSpace.classList.add('hidden'); els.mixSpace.classList.remove('hidden'); renderMixerSources(); initMixerSortable(); }
         window.confirmGlobalMixer = async function () { const thumbs = Array.from(document.querySelectorAll('#mixer-dest-list .mixer-thumb')); if (!thumbs.length) return; closeWorkspaces(); els.loader.classList.remove('hidden'); try { const newDoc = await PDFDocument.create(); const cache = {}; for (const t of thumbs) { const fid = t.dataset.fileId; if (!cache[fid]) { const f = sourceFiles.find(x => x.id === fid); if (f) cache[fid] = f.type === 'pdf' ? await PDFDocument.load(f.arrayBuffer) : f; } if (cache[fid]) { if (cache[fid] instanceof PDFDocument) { const [p] = await newDoc.copyPages(cache[fid], [parseInt(t.dataset.pageIndex)]); newDoc.addPage(p); } else { const f = cache[fid]; const img = f.mime === 'image/jpeg' ? await newDoc.embedJpg(f.arrayBuffer) : await newDoc.embedPng(f.arrayBuffer); const p = newDoc.addPage([595.28, 841.89]); const d = img.scaleToFit(555.28, 801.89); p.drawImage(img, { x: (595.28 - d.width) / 2, y: (841.89 - d.height) / 2, width: d.width, height: d.height }); } } } await finishPDF(await newDoc.save(), "Mixage.pdf"); } catch (e) { console.error(e); } finally { els.loader.classList.add('hidden'); } }
-        function initMixerSortable() { const dest = document.getElementById('mixer-dest-list'); if (!dest._sortable) { dest._sortable = new Sortable(dest, { group: 'mixer', animation: 150, filter: '#mixer-placeholder', onAdd: updateMixerCount, onRemove: updateMixerCount }); dest.addEventListener('click', (e) => { if (e.target.closest('.mixer-delete-btn')) { e.target.closest('.mixer-thumb').remove(); updateMixerCount(); } }); dest.addEventListener('dblclick', async (e) => { const t = e.target.closest('.mixer-thumb'); if (t) { const f = sourceFiles.find(x => x.id === t.dataset.fileId); if (f) openCropperForPage(f, parseInt(t.dataset.pageIndex) || 0, 'interro'); } }); } }
+        function initMixerSortable() { const dest = document.getElementById('mixer-dest-list'); if (!dest._sortable) { dest._sortable = new Sortable(dest, { group: 'mixer', animation: 150, filter: '#mixer-placeholder', onAdd: (e) => { 
+            // MULTI DRAG HANDLER
+            const item = e.item;
+            const fid = item.dataset.fileId;
+            const pid = item.dataset.pageIndex;
+            // Si l'élément droppé faisait partie de la sélection
+            if (selectedMixerPages.has(fid + "_" + pid)) {
+                // Since Sortable handles the dragged one, we handle the *rest*.
+                const sources = document.querySelectorAll('#mixer-source-container .mixer-thumb.selected-mixer-item');
+                sources.forEach(src => {
+                    const k = src.dataset.fileId + "_" + src.dataset.pageIndex;
+                    if (k !== (fid + "_" + pid)) {
+                        const clone = src.cloneNode(true);
+                        clone.classList.remove('selected-mixer-item');
+                        clone.onclick = null;
+                        dest.appendChild(clone);
+                        src.classList.remove('selected-mixer-item'); // Deselect source
+                    }
+                });
+                item.classList.remove('selected-mixer-item'); // Deselect dropped
+                selectedMixerPages.clear();
+                updateSelectionButton();
+            }
+            updateMixerCount(); 
+        }, onRemove: updateMixerCount }); dest.addEventListener('click', (e) => { if (e.target.closest('.delete-btn-overlay')) { e.target.closest('.mixer-thumb').remove(); updateMixerCount(); } }); dest.addEventListener('dblclick', async (e) => { const t = e.target.closest('.mixer-thumb'); if (t) { const f = sourceFiles.find(x => x.id === t.dataset.fileId); if (f) openCropperForPage(f, parseInt(t.dataset.pageIndex) || 0, 'interro'); } }); } }
         function updateMixerCount() { const n = document.querySelectorAll('#mixer-dest-list .mixer-thumb').length; document.getElementById('mixer-count').innerText = n + " page(s)"; document.getElementById('mixer-placeholder').style.display = n > 0 ? 'none' : 'flex'; }
-        async function renderMixerSources() { const c = document.getElementById('mixer-source-container'); c.innerHTML = '<div class="loader m-auto"></div>'; const frag = document.createDocumentFragment(); for (const f of sourceFiles) { const h = document.createElement('div'); h.className = "mb-2 mt-4 px-2 font-bold text-slate-700 text-sm border-b pb-1 truncate"; h.innerText = (f.type === 'pdf' ? '📄 ' : '🖼️ ') + f.name; frag.appendChild(h); const g = document.createElement('div'); g.className = "mixer-grid mb-6"; new Sortable(g, { group: { name: 'mixer', pull: 'clone', put: false }, sort: false, animation: 150, onEnd: (e) => { if (e.to.id === 'mixer-dest-list') updateMixerCount(); } }); if (f.type === 'pdf') { const d = await pdfjsLib.getDocument({ data: new Uint8Array(f.arrayBuffer.slice(0)) }).promise; for (let i = 1; i <= d.numPages; i++) { const p = await d.getPage(i); const vp = p.getViewport({ scale: 0.2 }); const cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height; await p.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise; g.appendChild(createMixerThumb(f.id, i - 1, cv.toDataURL(), `Page ${i}`)); } } else { g.appendChild(createMixerThumb(f.id, 0, f.dataUrl, 'Image')); } frag.appendChild(g); } c.innerHTML = ''; c.appendChild(frag); }
-        function createMixerThumb(fid, pid, url, label) { const w = document.createElement('div'); w.className = "mixer-thumb group flex flex-col gap-1 items-center select-none relative"; w.dataset.pageIndex = pid; w.dataset.fileId = fid; w.innerHTML = `<img src="${url}" class="w-full h-auto bg-white shadow border rounded pointer-events-none"><div class="delete-btn-overlay">&times;</div><span class="text-[10px] font-bold text-slate-500 mt-1">${label}</span>`; w.ondblclick = () => openCropperForPage(sourceFiles.find(x => x.id === fid), pid, 'interro'); return w; }
+async function renderMixerSources() { 
+            const c = document.getElementById('mixer-source-container'); 
+            
+            // --- PROTECTION CRITIQUE ---
+            // C'est cette ligne qui corrige ton bug "reading 'type' of undefined"
+            // Elle nettoie la liste avant de commencer.
+            sourceFiles = sourceFiles.filter(f => f && f.id); 
+            // ---------------------------
 
-        // --- MONTAGE ---
+            c.innerHTML = '<div class="loader m-auto"></div>'; 
+            
+            const frag = document.createDocumentFragment(); 
+            const lasso = document.createElement('div'); 
+            lasso.id = "selection-lasso"; 
+            frag.appendChild(lasso);
+            
+            for (const f of sourceFiles) { 
+                // Double sécurité : si un fichier est vide, on le saute
+                if (!f || !f.type) continue; 
+
+                const h = document.createElement('div'); 
+                h.className = "mb-2 mt-4 px-2 font-bold text-slate-700 text-sm border-b pb-1 truncate"; 
+                h.innerText = (f.type === 'pdf' ? '📄 ' : '🖼️ ') + f.name; 
+                frag.appendChild(h); 
+                
+                const g = document.createElement('div'); 
+                g.className = "mixer-grid mb-6"; 
+                
+                new Sortable(g, { 
+                    group: { name: 'mixer', pull: 'clone', put: false }, 
+                    sort: false, 
+                    animation: 150, 
+                    onEnd: (e) => { 
+                        if (e.to.id === 'mixer-dest-list') updateMixerCount(); 
+                    } 
+                }); 
+                
+                if (f.type === 'pdf') { 
+                    try {
+                        const d = await pdfjsLib.getDocument({ data: new Uint8Array(f.arrayBuffer.slice(0)) }).promise; 
+                        for (let i = 1; i <= d.numPages; i++) { 
+                            const p = await d.getPage(i); 
+                            const vp = p.getViewport({ scale: 0.2 }); 
+                            const cv = document.createElement('canvas'); 
+                            cv.width = vp.width; 
+                            cv.height = vp.height; 
+                            await p.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise; 
+                            g.appendChild(createMixerThumb(f.id, i - 1, cv.toDataURL(), `Page ${i}`)); 
+                        } 
+                    } catch(err) {
+                        console.error("Erreur rendu vignette PDF", err);
+                    }
+                } else { 
+                    g.appendChild(createMixerThumb(f.id, 0, f.dataUrl, 'Image')); 
+                } 
+                frag.appendChild(g); 
+            } 
+            
+            c.innerHTML = ''; 
+            c.appendChild(frag); 
+            initLassoSelection(); 
+        }
+        
+        function createMixerThumb(fid, pid, url, label) { 
+            const w = document.createElement('div'); w.className = "mixer-thumb group flex flex-col gap-1 items-center select-none relative"; w.dataset.pageIndex = pid; w.dataset.fileId = fid; 
+            // ADDED: selection-check div
+            w.innerHTML = `<img src="${url}" class="w-full h-auto bg-white shadow border rounded pointer-events-none"><div class="selection-check">✔</div><div class="delete-btn-overlay">&times;</div><span class="text-[10px] font-bold text-slate-500 mt-1">${label}</span>`; 
+            w.ondblclick = () => openCropperForPage(sourceFiles.find(x => x.id === fid), pid, 'interro'); 
+            w.onclick = (e) => {
+                if(e.target.closest('.delete-btn-overlay')) return;
+                
+                // CHECKMARK CLICK (Deselect specific item)
+                if (e.target.closest('.selection-check')) {
+                    w.classList.remove('selected-mixer-item');
+                    selectedMixerPages.delete(fid + "_" + pid);
+                    updateSelectionButton();
+                    e.stopPropagation(); // Stop standard selection logic
+                    return;
+                }
+
+                // STANDARD CLICK (Additive selection logic)
+                // Just add it to selection (user wants to select, even if others are selected)
+                if (!w.classList.contains('selected-mixer-item')) {
+                    selectedMixerPages.add(fid + "_" + pid); 
+                    w.classList.add('selected-mixer-item');
+                } else {
+                    // If already selected and clicked (not on checkmark), we generally keep it selected for drag
+                    // Unless Ctrl is pressed to toggle off
+                    if (e.ctrlKey) {
+                        selectedMixerPages.delete(fid + "_" + pid); 
+                        w.classList.remove('selected-mixer-item');
+                    }
+                }
+                updateSelectionButton();
+            };
+            return w; 
+        }
+
+        function updateSelectionButton() {
+            const btn = document.getElementById('btn-add-selection');
+            if (!btn) return;
+            if(selectedMixerPages.size > 0) { btn.innerText = `Ajouter (${selectedMixerPages.size})`; btn.classList.remove('hidden'); } else { btn.classList.add('hidden'); }
+        }
+
+        window.addSelectionToMixer = () => {
+             const dest = document.getElementById('mixer-dest-list');
+             const sources = Array.from(document.querySelectorAll('#mixer-source-container .mixer-thumb'));
+             sources.forEach(src => {
+                 if (src.classList.contains('selected-mixer-item')) {
+                     const clone = src.cloneNode(true); clone.classList.remove('selected-mixer-item'); clone.onclick = null; 
+                     dest.appendChild(clone); src.classList.remove('selected-mixer-item');
+                 }
+             });
+             selectedMixerPages.clear(); updateSelectionButton(); updateMixerCount(); dest.scrollTop = dest.scrollHeight;
+        };
+
         function openMontage() { els.stdSpace.classList.add('hidden'); els.mixSpace.classList.add('hidden'); els.mntSpace.classList.remove('hidden'); renderMontageSources(); refreshLibUI(); updateMontageZoom(0.8); }
         function switchMontageTab(t) { document.getElementById('mt-content-src').classList.toggle('hidden', t !== 'src'); document.getElementById('mt-content-lib').classList.toggle('hidden', t !== 'lib'); document.getElementById('mt-tab-src').className = t === 'src' ? "flex-1 py-3 text-center border-b-2 border-pink-600 bg-pink-50 text-pink-700" : "flex-1 py-3 text-center border-b-2 border-transparent hover:bg-slate-50"; document.getElementById('mt-tab-lib').className = t === 'lib' ? "flex-1 py-3 text-center border-b-2 border-pink-600 bg-pink-50 text-pink-700" : "flex-1 py-3 text-center border-b-2 border-transparent hover:bg-slate-50"; }
         function updateMontageZoom(v) { els.mntPaper.style.transform = `scale(${v})`; }
         function setMontageOrientation(o) { if (o === 'landscape') { els.mntPaper.style.width = '842px'; els.mntPaper.style.height = '595px'; } else { els.mntPaper.style.width = '595px'; els.mntPaper.style.height = '842px'; } }
+        function addWhiteRect() { addItemToPaper('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAXNSR0IArs4c6QAAAA1JREFUGFdj+P///38ACfsD/QVDRcoAAAAASUVORK5CYII=', 100, 50, 50, 50, true); }
         async function renderMontageSources() { const c = document.getElementById('montage-source-list'); c.innerHTML = ''; for (const f of sourceFiles) { const h = document.createElement('div'); h.className = "mb-1 mt-3 px-2 font-bold text-slate-700 text-xs border-b pb-1"; h.innerText = f.name; c.appendChild(h); const g = document.createElement('div'); g.className = "mixer-grid"; c.appendChild(g); if (f.type === 'pdf') { const d = await pdfjsLib.getDocument({ data: new Uint8Array(f.arrayBuffer.slice(0)) }).promise; for (let i = 1; i <= d.numPages; i++) { const p = await d.getPage(i); const vp = p.getViewport({ scale: 0.2 }); const cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height; await p.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise; g.appendChild(createMontageThumb(f.id, i - 1, cv.toDataURL(), `P.${i}`)); } } else { g.appendChild(createMontageThumb(f.id, 0, f.dataUrl, 'Img')); } } }
         function createMontageThumb(fid, pid, url, label) { const w = document.createElement('div'); w.className = "mixer-thumb cursor-grab"; w.draggable = true; w.innerHTML = `<img src="${url}" class="pointer-events-none"><span class="text-[9px] font-bold text-slate-400">${label}</span>`; w.onclick = () => openCropperForPage(sourceFiles.find(x => x.id === fid), pid, 'montage'); w.ondragstart = (e) => { e.dataTransfer.setData('src-id', fid); e.dataTransfer.setData('src-page', pid); }; return w; }
-
-        // --- LIB ---
+        
         async function refreshLibUI() { const items = await dbHelper.getAll(); const c = document.getElementById('montage-lib-list'); c.innerHTML = ''; items.sort((a, b) => b.date - a.date).forEach(item => { const d = document.createElement('div'); d.className = "mixer-thumb relative cursor-grab"; d.draggable = true; d.innerHTML = `<img src="${item.data}" class="pointer-events-none"><div class="delete-btn-overlay" onclick="deleteLibItem('${item.id}', this)">&times;</div>`; d.ondragstart = (e) => { e.dataTransfer.setData('lib-id', item.id); }; c.appendChild(d); }); }
         window.deleteLibItem = async (id, el) => { event.stopPropagation(); await dbHelper.delete(id); el.closest('.mixer-thumb').remove(); };
         window.exportLibrary = async () => { const items = await dbHelper.getAll(); const blob = new Blob([JSON.stringify(items)], { type: "application/json" }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "MaBibliotheque.json"; a.click(); };
         window.askImportLibrary = () => { document.getElementById('lib-warning-modal').classList.remove('hidden'); };
         window.confirmImportLib = (mode) => { libImportMode = mode; document.getElementById('lib-warning-modal').classList.add('hidden'); document.getElementById('lib-import-input').click(); };
-        window.handleLibImport = async (input) => {
-            if (!input.files.length) return;
-            const r = new FileReader();
-            r.onload = async (e) => {
-                if (libImportMode === 'replace') await dbHelper.clear();
-                try { const l = JSON.parse(e.target.result); for (const i of l) await dbHelper.add(i); refreshLibUI(); showToast("Bibliothèque mise à jour !"); } catch (e) { showToast("Erreur fichier"); }
-            };
-            r.readAsText(input.files[0]); input.value = '';
-        }
+        window.handleLibImport = async (input) => { if (!input.files.length) return; const r = new FileReader(); r.onload = async (e) => { if (libImportMode === 'replace') await dbHelper.clear(); try { const l = JSON.parse(e.target.result); for (const i of l) await dbHelper.add(i); refreshLibUI(); showToast("Bibliothèque mise à jour !"); } catch (e) { showToast("Erreur fichier"); } }; r.readAsText(input.files[0]); input.value = ''; };
 
-        // --- DRAG DROP MONTAGE ---
         els.mntPaper.addEventListener('dragover', (e) => e.preventDefault());
         els.mntPaper.addEventListener('drop', async (e) => { e.preventDefault(); const libId = e.dataTransfer.getData('lib-id'); const srcId = e.dataTransfer.getData('src-id'); if (libId) { const item = await dbHelper.get(libId); if (item) addItemToPaper(item.data, item.width, item.height, e.offsetX, e.offsetY); } else if (srcId) { const f = sourceFiles.find(x => x.id === srcId); if (!f) return; const pIdx = parseInt(e.dataTransfer.getData('src-page')); let dataUrl, w, h; if (f.type === 'pdf') { const d = await pdfjsLib.getDocument({ data: new Uint8Array(f.arrayBuffer.slice(0)) }).promise; const p = await d.getPage(pIdx + 1); const vp = p.getViewport({ scale: 2.0 }); const cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height; await p.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise; dataUrl = cv.toDataURL(); w = vp.width; h = vp.height; } else { dataUrl = f.dataUrl; const img = new Image(); img.src = dataUrl; await new Promise(r => img.onload = r); w = img.width; h = img.height; } addItemToPaper(dataUrl, w, h, e.offsetX, e.offsetY); } });
         function addItemToPaper(data, width, height, x, y, isGomme = false) {
-            const div = document.createElement('div'); div.className = 'draggable-item active'; div.style.left = x + 'px'; div.style.top = y + 'px';
-            const ratio = height / width; const w = 200; const h = 200 * ratio; div.style.width = w + 'px'; div.style.height = h + 'px';
-            if (isGomme) div.style.zIndex = 1000;
+            const div = document.createElement('div'); div.className = 'draggable-item active'; div.style.left = x + 'px'; div.style.top = y + 'px'; const ratio = height / width; const w = 200; const h = 200 * ratio; div.style.width = w + 'px'; div.style.height = h + 'px'; if (isGomme) div.style.zIndex = 1000;
             div.innerHTML = `<img src="${data}"><div class="item-controls"><div class="ctrl-btn" onclick="reCropItem(this)" title="Recadrer">✂️</div><div class="ctrl-btn delete" onmousedown="this.closest('.draggable-item').remove()" title="Supprimer">🗑️</div></div><div class="resize-corner" onmousedown="startResize(event)"></div>`;
-            div.onmousedown = (e) => {
-                if (e.target.classList.contains('resize-corner') || e.target.classList.contains('ctrl-btn')) return;
-                document.querySelectorAll('.draggable-item').forEach(el => el.classList.remove('active'));
-                div.classList.add('active');
-                div.style.zIndex = isGomme ? 1000 : 10;
-                let startX = e.clientX, startY = e.clientY; let startL = div.offsetLeft, startT = div.offsetTop; const zoomLevel = parseFloat(els.zoomSlider.value) || 1;
-                function move(em) { div.style.left = (startL + (em.clientX - startX) / zoomLevel) + 'px'; div.style.top = (startT + (em.clientY - startY) / zoomLevel) + 'px'; }
-                function stop() { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', stop); }
-                window.addEventListener('mousemove', move); window.addEventListener('mouseup', stop);
-            };
+            div.onmousedown = (e) => { if (e.target.classList.contains('resize-corner') || e.target.classList.contains('ctrl-btn')) return; document.querySelectorAll('.draggable-item').forEach(el => el.classList.remove('active')); div.classList.add('active'); div.style.zIndex = isGomme ? 1000 : 10; let startX = e.clientX, startY = e.clientY; let startL = div.offsetLeft, startT = div.offsetTop; const zoomLevel = parseFloat(els.zoomSlider.value) || 1; function move(em) { div.style.left = (startL + (em.clientX - startX) / zoomLevel) + 'px'; div.style.top = (startT + (em.clientY - startY) / zoomLevel) + 'px'; } function stop() { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', stop); } window.addEventListener('mousemove', move); window.addEventListener('mouseup', stop); };
             els.mntPaper.appendChild(div);
         }
         window.startResize = (e) => { e.stopPropagation(); e.preventDefault(); const item = e.target.closest('.draggable-item'), startX = e.clientX, startY = e.clientY, startW = item.offsetWidth, startH = item.offsetHeight, z = parseFloat(els.zoomSlider.value) || 1; function doResize(ev) { item.style.width = Math.max(20, startW + (ev.clientX - startX) / z) + 'px'; item.style.height = Math.max(20, startH + (ev.clientY - startY) / z) + 'px'; } window.addEventListener('mousemove', doResize); window.addEventListener('mouseup', () => window.removeEventListener('mousemove', doResize), { once: true }); };
-        document.addEventListener('keydown', (e) => {
-            // On vérifie si le modal livret est visible et si l'objet flipbook existe
-            const modal = document.getElementById('booklet-preview-modal');
-            if (!modal.classList.contains('hidden') && bookletFlip) {
-                if (e.key === "ArrowLeft") {
-                    bookletFlip.flipPrev();
-                } else if (e.key === "ArrowRight") {
-                    bookletFlip.flipNext();
-                }
-            }
-        });
         async function generateMontagePDF() { els.loader.classList.remove('hidden'); try { const doc = await PDFDocument.create(); const paperW = parseFloat(els.mntPaper.style.width); const paperH = parseFloat(els.mntPaper.style.height); const page = doc.addPage([paperW, paperH]); const items = Array.from(els.mntPaper.querySelectorAll('.draggable-item')); for (const item of items) { const imgElem = item.querySelector('img'); const imgBytes = await fetch(imgElem.src).then(res => res.arrayBuffer()); const imgEmbed = await doc.embedPng(imgBytes); const x = item.offsetLeft; const y = paperH - item.offsetTop - item.offsetHeight; page.drawImage(imgEmbed, { x: x, y: y, width: item.offsetWidth, height: item.offsetHeight }); } await finishPDF(await doc.save(), "Montage.pdf"); } catch (e) { console.error(e); showToast("Erreur Export", "error"); } finally { els.loader.classList.add('hidden'); } }
     </script>
-    <footer class="text-center py-1 text-slate-400 text-xs mt-auto border-t">
-        <small>
-            &copy;
-            <script>document.write(new Date().getFullYear())</script>
-            <strong>DEVODDERE Rémy</strong>. Tous droits réservés. <a rel="license"
-                href="http://creativecommons.org/licenses/by-nc-nd/4.0/" target="_blank">
-                Licence CC BY-NC-ND 4.0
-            </a>
-        </small>
-    </footer>
-    <div id="donation-modal"
-        class="fixed inset-0 bg-slate-900/80 z-[100] hidden flex flex-col items-center justify-center backdrop-blur-sm transition-opacity">
-        <div
-            class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100 p-6 text-center relative animate-bounce-short">
-
-            <button onclick="closeDonationModal()"
-                class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
-                    </path>
-                </svg>
-            </button>
-
-            <div class="w-16 h-16 bg-pink-100 text-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd"
-                        d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
-                        clip-rule="evenodd" />
-                </svg>
-            </div>
-
-            <h3 class="text-xl font-bold text-slate-800 mb-3">Soutenir le projet</h3>
-
-            <div class="text-slate-600 text-sm mb-6 space-y-2 leading-relaxed">
-                <p>Cet outil est développé bénévolement pour aider professeurs et élèves.</p>
-                <p class="font-medium text-pink-600">Il n'y a pas de pub, pas d'inscription.</p>
-                <p>Si vous souhaitez soutenir ma démarche et l'évolution du projet, vous pouvez faire un don libre
-                    ci-dessous.</p>
-            </div>
-
-            <a href="https://www.paypal.com/donate/?hosted_button_id=VKZXDC5BM2GHA" target="_blank"
-                class="block w-full py-3 bg-pink-500 hover:bg-pink-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-1 mb-3 flex items-center justify-center gap-2">
-                <span>❤️</span> Faire un don
-            </a>
-
-            <button onclick="closeDonationModal()"
-                class="text-xs text-slate-400 hover:text-slate-600 underline py-2">Plus tard</button>
-        </div>
-    </div>
 </body>
-
 </html>

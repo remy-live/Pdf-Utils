@@ -119,6 +119,15 @@
             <button onclick="openMontage()" class="px-3 py-1.5 text-slate-600 hover:text-pink-600 hover:bg-white rounded-md font-medium text-xs transition flex flex-col items-center gap-1"><span>🎨</span> Montage</button>
         </div>
         <div class="flex items-center gap-2 w-auto justify-end">
+             <button onclick="openDonationModal()"
+                class="text-pink-500 hover:text-pink-600 p-2 rounded-full hover:bg-pink-50 transition transform hover:scale-110"
+                title="Soutenir le projet">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd"
+                        d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
+                        clip-rule="evenodd" />
+                </svg>
+            </button>
             <button onclick="openGeneralHelp()" class="bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-bold text-xs hover:bg-indigo-200 transition border border-indigo-300 flex items-center gap-1"><span>❓</span> Aide</button>
             <div id="header-actions" class="hidden flex gap-2 ml-2 pl-2 border-l border-slate-300">
                 <a id="final-download-btn" href="#" download="" class="bg-green-600 text-white px-4 py-1.5 rounded-lg font-bold text-xs hover:bg-green-700 shadow flex items-center gap-2 transition transform hover:scale-[1.02]">Télécharger</a>
@@ -435,7 +444,15 @@
          </div>
     </div>
 
+    
     <script>
+        function openDonationModal() {
+            document.getElementById('donation-modal').classList.remove('hidden');
+        }
+
+        function closeDonationModal() {
+            document.getElementById('donation-modal').classList.add('hidden');
+        }
         let sourceFiles = [], cropImageData = null, activeCropperMode = null, currentCropperFile = null, currentCropperPage = 0, pendingDuplicationResolve = null, libImportMode = 'merge', bookletBlob = null;
         const { PDFDocument, rgb, degrees } = PDFLib;
         const els = { timeline: document.getElementById('timeline'), dockDrop: document.getElementById('dock-drop-overlay'), stdSpace: document.getElementById('standard-workspace'), mixSpace: document.getElementById('mixer-workspace'), mntSpace: document.getElementById('montage-workspace'), previewFrame: document.getElementById('pdf-preview'), loader: document.getElementById('loading-indicator'), dlBtn: document.getElementById('final-download-btn'), cropperModal: document.getElementById('cropper-modal'), mntPaper: document.getElementById('montage-paper'), headerActions: document.getElementById('header-actions'), previewPlace: document.getElementById('preview-placeholder'), zoomSlider: document.getElementById('montage-zoom-slider') };
@@ -1078,5 +1095,54 @@ async function renderMixerSources() {
         window.startResize = (e) => { e.stopPropagation(); e.preventDefault(); const item = e.target.closest('.draggable-item'), startX = e.clientX, startY = e.clientY, startW = item.offsetWidth, startH = item.offsetHeight, z = parseFloat(els.zoomSlider.value) || 1; function doResize(ev) { item.style.width = Math.max(20, startW + (ev.clientX - startX) / z) + 'px'; item.style.height = Math.max(20, startH + (ev.clientY - startY) / z) + 'px'; } window.addEventListener('mousemove', doResize); window.addEventListener('mouseup', () => window.removeEventListener('mousemove', doResize), { once: true }); };
         async function generateMontagePDF() { els.loader.classList.remove('hidden'); try { const doc = await PDFDocument.create(); const paperW = parseFloat(els.mntPaper.style.width); const paperH = parseFloat(els.mntPaper.style.height); const page = doc.addPage([paperW, paperH]); const items = Array.from(els.mntPaper.querySelectorAll('.draggable-item')); for (const item of items) { const imgElem = item.querySelector('img'); const imgBytes = await fetch(imgElem.src).then(res => res.arrayBuffer()); const imgEmbed = await doc.embedPng(imgBytes); const x = item.offsetLeft; const y = paperH - item.offsetTop - item.offsetHeight; page.drawImage(imgEmbed, { x: x, y: y, width: item.offsetWidth, height: item.offsetHeight }); } await finishPDF(await doc.save(), "Montage.pdf"); } catch (e) { console.error(e); showToast("Erreur Export", "error"); } finally { els.loader.classList.add('hidden'); } }
     </script>
+        <footer class="text-center py-1 text-slate-400 text-xs mt-auto border-t">
+        <small>
+            &copy;
+            <script>document.write(new Date().getFullYear())</script>
+            <strong>DEVODDERE Rémy</strong>. Tous droits réservés. <a rel="license"
+                href="http://creativecommons.org/licenses/by-nc-nd/4.0/" target="_blank">
+                Licence CC BY-NC-ND 4.0
+            </a>
+        </small>
+    </footer>
+    <div id="donation-modal"
+        class="fixed inset-0 bg-slate-900/80 z-[100] hidden flex flex-col items-center justify-center backdrop-blur-sm transition-opacity">
+        <div
+            class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100 p-6 text-center relative animate-bounce-short">
+
+            <button onclick="closeDonationModal()"
+                class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                    </path>
+                </svg>
+            </button>
+
+            <div class="w-16 h-16 bg-pink-100 text-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd"
+                        d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
+                        clip-rule="evenodd" />
+                </svg>
+            </div>
+
+            <h3 class="text-xl font-bold text-slate-800 mb-3">Soutenir le projet</h3>
+
+            <div class="text-slate-600 text-sm mb-6 space-y-2 leading-relaxed">
+                <p>Cet outil est développé bénévolement pour aider professeurs et élèves.</p>
+                <p class="font-medium text-pink-600">Il n'y a pas de pub, pas d'inscription.</p>
+                <p>Si vous souhaitez soutenir ma démarche et l'évolution du projet, vous pouvez faire un don libre
+                    ci-dessous.</p>
+            </div>
+
+            <a href="https://www.paypal.com/donate/?hosted_button_id=VKZXDC5BM2GHA" target="_blank"
+                class="block w-full py-3 bg-pink-500 hover:bg-pink-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition transform hover:-translate-y-1 mb-3 flex items-center justify-center gap-2">
+                <span>❤️</span> Faire un don
+            </a>
+
+            <button onclick="closeDonationModal()"
+                class="text-xs text-slate-400 hover:text-slate-600 underline py-2">Plus tard</button>
+        </div>
+    </div>
 </body>
 </html>
